@@ -12,7 +12,7 @@ from threading import Lock
 from config import (
     HEADERS, RANKING_URL, PROFILE_URL, SAVE_PATH, 
     FILE_NAMES, target_ranks, GRAND_PRIX_CONFIG, CHARACTER_NAMES,
-    generate_filename_prefix, get_filename
+    generate_filename_prefix, get_filename, LGP_START_DATE
 )
 from utils import get_player_profile, log_progress, retry_request, fetch_player_profile
 import requests
@@ -36,12 +36,27 @@ class RankingDataCollector:
         参数:
         ranking_day_type: 排行榜日期类型，20为前日榜，21为当日榜(默认)
         """
+        # 重新加载config模块以确保获取最新的LGP_START_DATE
+        import importlib
+        import config
+        importlib.reload(config)
+        from config import (
+            HEADERS, RANKING_URL, PROFILE_URL, SAVE_PATH, 
+            FILE_NAMES, target_ranks, GRAND_PRIX_CONFIG, CHARACTER_NAMES,
+            generate_filename_prefix, get_filename, LGP_START_DATE
+        )
+        
         self.lock = Lock()
         self.completed_count_step1 = 0
         self.completed_count_step2 = 0
         self.target_ranks = target_ranks
         self.stop_rank = float('inf')  # 记录获取到空列表的排名
         self.ranking_day_type = ranking_day_type  # 存储排行榜日期类型
+        
+        # 检查LGP开始日期是否已设置
+        if LGP_START_DATE is None:
+            print("错误: LGP开始日期未设置，请先运行GUI程序获取LGP信息")
+            sys.exit(1)
         
         # 定义排行榜类型及其对应的名称
         day_type_name = "当日" if ranking_day_type == 21 else "前日"
@@ -287,11 +302,7 @@ class RankingDataCollector:
         # 保存第一步的数据到Excel的不同子表中
         # 创建自定义文件名，使用正确的day计算
         ranking_cache_file = get_filename('ranking_cache', is_previous_day)
-        day_type_suffix = "当日" if self.ranking_day_type == 21 else "前日"
-        
-        # 在文件名中添加LGP类型标识
-        cache_file_name = ranking_cache_file.replace('.xlsx', f'_{day_type_suffix}.xlsx')
-        cache_file_path = os.path.join(SAVE_PATH, cache_file_name)
+        cache_file_path = os.path.join(SAVE_PATH, ranking_cache_file)
         
         # 确保有数据才创建文件夹和保存文件
         has_data = False
@@ -408,15 +419,14 @@ class RankingDataCollector:
             df = df.drop(columns=columns_to_check)
             print(f"已删除无数据的列: {', '.join(columns_to_check)}")
         
-        # 根据LGP类型设置输出文件名
+        # 保存第二步的数据到Excel
         ranking_full_file = get_filename('ranking_full', is_previous_day)
-        output_file_name = ranking_full_file.replace('.xlsx', f'_{day_type_suffix}.xlsx')
-        output_file = os.path.join(SAVE_PATH, output_file_name)
+        output_file = os.path.join(SAVE_PATH, ranking_full_file)
         
         # 只有在DataFrame不为空时才保存
         if not df.empty:
             df.to_excel(output_file, index=False)
-            print(f"{day_type_suffix}排行榜完整数据已保存至 {output_file}")
+            print(f"{self.ranking_types[self.ranking_day_type]}排行榜完整数据已保存至 {output_file}")
         else:
             print(f"没有获取到任何玩家详细信息，跳过保存完整数据文件")
 

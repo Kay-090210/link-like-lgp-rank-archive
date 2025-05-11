@@ -206,7 +206,7 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_PATH = os.path.join(CURRENT_DIR, generate_save_directory())  # 动态生成保存路径文件夹
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(datetime.now().year, datetime.now().month, 1)  # 默认为当月1日
+LGP_START_DATE = datetime(2025, 5, 11)  # 初始化为None，强制必须通过update_lgp_start_date设置
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):
@@ -219,7 +219,23 @@ def update_lgp_start_date(year, month, day):
         day: 日期
     """
     global LGP_START_DATE
-    LGP_START_DATE = datetime(year, month, day)
+    
+    # 验证日期参数
+    if not all([year, month, day]):  # 确保所有参数都不为None或0
+        print(f"警告: 无效的日期参数 - year: {year}, month: {month}, day: {day}")
+        return
+        
+    try:
+        new_date = datetime(year, month, day)
+        # 检查日期是否合理（不早于2024年且不晚于2026年）
+        if not (2024 <= year <= 2026):
+            print(f"警告: 可疑的年份值 {year}")
+            return
+            
+        LGP_START_DATE = new_date
+        print(f"已更新LGP开始日期为: {LGP_START_DATE.strftime('%Y-%m-%d')}")
+    except ValueError as e:
+        print(f"错误: 无效的日期值 - {e}")
 
 # 生成文件名前缀
 def generate_filename_prefix(is_previous_day=False):
@@ -233,21 +249,31 @@ def generate_filename_prefix(is_previous_day=False):
         如果当前日期早于开始日期，返回空字符串
         否则返回"dayX_"格式的前缀，X为活动天数
     """
+    global LGP_START_DATE
+    
+    if LGP_START_DATE is None:
+        print("错误: LGP开始日期未设置，请先运行GUI程序获取LGP信息")
+        return ""
+        
     now = datetime.now()
     
     # 如果当前日期早于开始日期，返回空字符串
     if now.date() < LGP_START_DATE.date():
+        print(f"当前日期 {now.date()} 早于开始日期 {LGP_START_DATE.date()}")
         return ""
     
     # 计算当前是活动的第几天（当天算第1天）
     day_diff = (now.date() - LGP_START_DATE.date()).days + 1
+    print(f"计算活动天数: 当前日期 {now.date()} - 开始日期 {LGP_START_DATE.date()} = {day_diff}天")
     
     # 如果是前日榜，则day减1，但确保不小于1
     if is_previous_day and day_diff > 1:
         day_diff -= 1
+        print(f"前日榜，天数减1: {day_diff}")
     
     # 生成前缀
     prefix = f"day{day_diff}_" if day_diff > 0 else ""
+    print(f"生成文件名前缀: {prefix}")
     
     return prefix
 

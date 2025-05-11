@@ -25,7 +25,7 @@ try:
     import login
     from config import (GRAND_PRIX_CONFIG, SAVE_PATH, update_battle_type, 
                       calculate_event_id, calculate_grade_id, SEASON_GRADE_ID,
-                      update_lgp_start_date)
+                      update_lgp_start_date, LGP_START_DATE)
     from getnews import get_latest_lgp_info
 except ImportError as e:
     print(f"导入模块失败: {e}")
@@ -623,7 +623,14 @@ class MainWindow(QMainWindow):
             finally:
                 # 不再使用deleteLater，而是直接设置为None
                 self.logger_thread = None
-            
+        
+        # 检查LGP开始日期是否已设置
+        if LGP_START_DATE is None:
+            self.add_log("错误: LGP开始日期未设置，正在重新获取...", "warning")
+            if not self.load_lgp_info():
+                self.add_log("错误: 无法获取LGP信息，请稍后重试", "error")
+                return
+        
         # 获取当前选择的值
         battle_type = 'personal'
         if self.guild_radio.isChecked():
@@ -732,15 +739,78 @@ class MainWindow(QMainWindow):
             # 获取最新的LGP信息
             latest_lgp = get_latest_lgp_info()
             
-            if latest_lgp and latest_lgp['start_month'] and latest_lgp['start_day']:
+            if latest_lgp:
+                self.add_log(f"获取到LGP信息: {latest_lgp['title']}", "info")
+                
+                # 验证日期信息
+                if not latest_lgp.get('start_month') or not latest_lgp.get('start_day'):
+                    self.add_log("错误: LGP信息中缺少开始日期", "error")
+                    return None
+                    
+                # 验证日期值的合理性
+                if not (1 <= latest_lgp['start_month'] <= 12):
+                    self.add_log(f"错误: 无效的月份值 {latest_lgp['start_month']}", "error")
+                    return None
+                    
+                if not (1 <= latest_lgp['start_day'] <= 31):
+                    self.add_log(f"错误: 无效的日期值 {latest_lgp['start_day']}", "error")
+                    return None
+                
                 # 更新月份
                 self.current_month = latest_lgp['start_month']
                 self.current_month_display.setText(f"{self.current_month}月")
                 
                 # 更新LGP开始日期
-                # 更新config中的LGP开始日期
                 current_year = datetime.now().year
                 update_lgp_start_date(current_year, self.current_month, latest_lgp['start_day'])
+                self.add_log(f"已设置LGP开始日期为: {current_year}年{self.current_month}月{latest_lgp['start_day']}日", "info")
+                
+                # 更新config.py文件中的LGP_START_DATE
+                try:
+                    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.py')
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        config_content = f.read()
+                    
+                    # 使用正则表达式查找并替换LGP_START_DATE的定义
+                    import re
+                    # 尝试查找现有的LGP_START_DATE定义
+                    lgp_date_pattern = r'(LGP_START_DATE\s*=\s*)(None|datetime\([^)]+\))'
+                    new_date_str = f"datetime({current_year}, {self.current_month}, {latest_lgp['start_day']})"
+                    
+                    if re.search(lgp_date_pattern, config_content):
+                        # 如果找到了现有定义，就替换它
+                        new_config_content = re.sub(lgp_date_pattern, f"\\1{new_date_str}", config_content)
+                    else:
+                        # 如果没找到，就在文件开头的import部分后面添加定义
+                        import_section_end = re.search(r'(from datetime import datetime\n)', config_content)
+                        if import_section_end:
+                            pos = import_section_end.end()
+                            new_config_content = (
+                                config_content[:pos] + 
+                                f"\n# LGP开始日期配置（由GUI自动更新）\nLGP_START_DATE = {new_date_str}\n\n" +
+                                config_content[pos:]
+                            )
+                        else:
+                            # 如果找不到import部分，就在文件开头添加
+                            new_config_content = (
+                                "from datetime import datetime\n\n"
+                                f"# LGP开始日期配置（由GUI自动更新）\nLGP_START_DATE = {new_date_str}\n\n" +
+                                config_content
+                            )
+                    
+                    # 写入更新后的内容
+                    with open(config_path, 'w', encoding='utf-8') as f:
+                        f.write(new_config_content)
+                    
+                    self.add_log("已更新config.py文件中的LGP开始日期", "success")
+                    
+                    # 重新加载config模块以更新全局变量
+                    import config
+                    import importlib
+                    importlib.reload(config)
+                    
+                except Exception as e:
+                    self.add_log(f"更新config.py文件失败: {str(e)}", "error")
                 
                 # 更新LGP举行时间标签
                 if 'period' in latest_lgp and latest_lgp['period']:

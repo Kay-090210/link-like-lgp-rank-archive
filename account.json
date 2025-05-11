@@ -1,10 +1,13 @@
 {
     "current_account": "\u65b0\u6ce8\u518c",
     "accounts": {
-       
+        "\u65b0\u6ce8\u518c": {
+            "device_id": "bd7b5607-6976-4fa1-8c3a-f7403028ca0f",
+            "player_id": "WKXFMNVDD"
+        }
     },
     "auth": {
-        "token": "d1bd00e2-02cd-4f21-b647-64cfb6f24f4c",
+        "token": "89eff4cb-88da-4d54-98b4-0a0af716f5a6",
         "resource_version": "R2505100",
         "client_version": "3.1.0"
     }
