@@ -277,11 +277,11 @@ def fetch_player_profile(player_info: dict, include_last_login: bool = False, he
             if character_id in character_levels:
                 character_levels[character_id] = d_season_level
         
-        # 计算季度等级总和
-        total_level = sum(character_levels.values())
+     # 计算季度等级总和(排除梢,缀里和慈)
+        total_level = sum(level for char_id, level in character_levels.items() if char_id not in [1021,1022,1023])
         
-        # 计算104季度等级总和（排除泉和塞拉斯）
-        total_104_level = sum(level for char_id, level in character_levels.items() if char_id not in [1051, 1052])
+        # 计算104季度等级总和（季度等级总和排除泉和塞拉斯）
+        total_104_level = sum(level for char_id, level in character_levels.items() if char_id not in [1021,1022,1023,1051, 1052])
         
         # 按照CHARACTER_NAMES的顺序添加角色信息
         for character_id, character_name in CHARACTER_NAMES.items():
