@@ -95,14 +95,37 @@ class LoggerThread(QThread):
             self.signal_func = signal_func
             self.reset_signal = reset_signal
             self.buffer = ""
-            # 添加标志位，标记是否因错误而停止
             self.error_occurred = False
+            # 新增：高频日志计数器
+            self.progress_counters = {
+                'fetch_ranking': 0,  # "获取...数据成功"
+                'fetch_profile': 0   # "请求 player_id...信息成功"
+            }
             
         def write(self, text):
             self.buffer += text
             if '\n' in text:
                 line = self.buffer.strip()
-                
+                import re
+                # 只处理高频进度日志，只有每500条emit一次，否则直接return
+                m1 = re.match(r"^获取 .+ 排行榜 target_rank \d+ 的数据成功 \((\d+)/(\d+)\) - 时间: .+$", line)
+                if m1:
+                    self.progress_counters['fetch_ranking'] += 1
+                    count = self.progress_counters['fetch_ranking']
+                    total = m1.group(2)
+                    if count % 500 == 0:
+                        self.signal_func(f"已完成{count}/{total}条排行榜数据采集...", 'info')
+                    self.buffer = ""
+                    return  # 其余高频进度日志不emit
+                m2 = re.match(r"^请求 player_id .+ 的信息成功 \((\d+)/(\d+)\) - 时间: .+$", line)
+                if m2:
+                    self.progress_counters['fetch_profile'] += 1
+                    count = self.progress_counters['fetch_profile']
+                    total = m2.group(2)
+                    if count % 500 == 0:
+                        self.signal_func(f"已完成{count}/{total}条玩家详细信息采集...", 'info')
+                    self.buffer = ""
+                    return  # 其余高频进度日志不emit
                 # 检测特定错误信息，设置错误标志
                 error_keywords = [
                     "停止脚本执行", 
@@ -110,21 +133,16 @@ class LoggerThread(QThread):
                     "测试请求未返回数据", 
                     "可能不在赛季期间"
                 ]
-                
                 for keyword in error_keywords:
                     if keyword in line:
                         self.error_occurred = True
-                        # 将消息标记为错误，而不是普通信息
                         self.signal_func(line, 'error')
-                        # 发送重置按钮信号
                         self.reset_signal.emit()
                         break
                 else:
-                    # 如果没有匹配到错误关键字，正常输出
                     self.signal_func(line, 'info')
-                
                 self.buffer = ""
-                
+            
         def flush(self):
             if self.buffer:
                 self.signal_func(self.buffer.strip(), 'info')
@@ -145,7 +163,7 @@ class LoggerThread(QThread):
         self.wait(2000)  # 等待2秒确保线程终止
     
     def run(self):
-        # 设置运行状态
+        # 设置运行状态2
         self.is_running = True
         
         # 保存原始的标准输出和标准错误流
@@ -191,7 +209,8 @@ class LoggerThread(QThread):
                 elif self.ranking_type == 'current':
                     ranking_type_value = 21 if self.battle_type == 'personal' else 31
                 
-                collector = RankingDataCollector()
+                # 传递正确的榜单类型参数
+                collector = RankingDataCollector(ranking_type_value)
                 collector.collect_data()
                 data_collected = True
             
@@ -237,6 +256,7 @@ class LoggerThread(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.log_lines = []  # 新增：日志队列
         self.init_ui()
         
     def init_ui(self):
@@ -549,16 +569,17 @@ class MainWindow(QMainWindow):
             'warning': '#ffc107', # 黄色
             'success': '#4caf50'  # 深绿色
         }
-        
         color = color_map.get(log_type, '#42a5f5')  # 默认使用 Material Design 蓝色
-        
         # 添加时间戳
         timestamp = datetime.now().strftime('%H:%M:%S')
-        
-        # 格式化为HTML并添加
+        # 格式化为HTML
         html = f'<span style="color: {color};">[{timestamp}] {message}</span><br>'
-        self.log_output.insertHtml(html)
-        
+        # 维护日志队列
+        self.log_lines.append(html)
+        if len(self.log_lines) > 500:
+            self.log_lines.pop(0)
+        # 刷新QTextEdit内容
+        self.log_output.setHtml(''.join(self.log_lines))
         # 滚动到底部
         self.log_output.moveCursor(self.log_output.textCursor().End)
     

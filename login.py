@@ -104,30 +104,17 @@ def check_and_run_register():
     
     log_progress("未找到有效的'新注册'账号配置，将执行注册程序...")
     
-    # 获取register.py的路径
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    register_path = os.path.join(current_dir, 'register.py')
-    
-    if not os.path.exists(register_path):
-        log_progress("错误：找不到register.py文件")
-        return False
-    
     try:
-        # 运行register.py
-        result = subprocess.run([sys.executable, register_path], 
-                               capture_output=True, text=True, check=True)
+        from register import register_account
+        register_account()
         log_progress("注册程序执行完成")
-        log_progress(result.stdout)
-        
         # 重新加载config模块以获取更新后的配置
         import importlib
         import config
         importlib.reload(config)
-        
         return True
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         log_progress(f"注册程序执行失败: {e}")
-        log_progress(f"错误输出: {e.stderr}")
         return False
 
 def get_current_token() -> str:

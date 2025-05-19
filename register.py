@@ -79,7 +79,7 @@ def update_account_json(player_id, device_id, session_token):
     print("已更新account.json中的账号信息和认证信息")
     return True
 
-def main() -> None:
+def register_account():
     resp = requests.post(URL, headers=HEADERS, json=DATA, timeout=15)
     print("\n=== Response Body ===")
     print(resp.text)
@@ -102,4 +102,4 @@ def main() -> None:
         print(f"处理出错: {e}")
 
 if __name__ == "__main__":
-    main()
+    register_account()

@@ -13,7 +13,7 @@ import requests
 
 def main():
     # 获取玩家信息
-    result = get_player_profile('BY6TN4PL8', HEADERS, PROFILE_URL)
+    result = get_player_profile('QTHXHSE6U', HEADERS, PROFILE_URL)
     # result = get_petal_exchange_info(HEADERS, PETAL_EXCHANGE_URL)
     # result = get_fanlv(HEADERS, FANLV_URL, PLAYER_IDS['single_query'])
     # result = get_ranking(HEADERS, RANKING_URL)
