@@ -9,14 +9,16 @@ import os
 from datetime import datetime
 import atexit
 import re
+import config
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QLabel, QRadioButton, QButtonGroup, QComboBox, QPushButton, 
-    QTextEdit, QGroupBox, QFrame, QSizePolicy
+    QTextEdit, QGroupBox, QFrame, QSizePolicy, QLineEdit
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject, QUrl
 from PyQt5.QtGui import QFont, QColor, QPalette, QIcon, QPixmap
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+import requests
 
 # 导入项目中的功能模块
 try:
@@ -39,7 +41,10 @@ class ImageLoader(QObject):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.network_manager = QNetworkAccessManager(self)
+        self.session = requests.Session()
+        # 禁用SSL验证警告
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
     def load_from_url(self, url):
         """从URL加载图片"""
@@ -47,28 +52,24 @@ class ImageLoader(QObject):
             self.load_error.emit("无效的图片URL")
             return
             
-        request = QNetworkRequest(QUrl(url))
-        reply = self.network_manager.get(request)
-        reply.finished.connect(lambda: self.handle_reply(reply))
-    
-    def handle_reply(self, reply):
-        """处理网络请求响应"""
-        if reply.error() == QNetworkReply.NoError:
-            # 读取图片数据并转换为QPixmap
-            data = reply.readAll()
-            pixmap = QPixmap()
-            pixmap.loadFromData(data)
+        try:
+            # 使用requests获取图片数据，禁用SSL验证
+            response = self.session.get(url, verify=False, timeout=10)
+            response.raise_for_status()
             
-            # 如果加载成功，发出信号
+            # 将图片数据转换为QPixmap
+            pixmap = QPixmap()
+            pixmap.loadFromData(response.content)
+            
             if not pixmap.isNull():
                 self.image_loaded.emit(pixmap)
             else:
                 self.load_error.emit("图片数据无效")
-        else:
-            self.load_error.emit(f"加载图片失败: {reply.errorString()}")
-        
-        # 清理资源
-        reply.deleteLater()
+                
+        except requests.RequestException as e:
+            self.load_error.emit(f"加载图片失败: {str(e)}")
+        except Exception as e:
+            self.load_error.emit(f"处理图片时发生错误: {str(e)}")
 
 class LoggerThread(QThread):
     """
@@ -106,7 +107,6 @@ class LoggerThread(QThread):
             self.buffer += text
             if '\n' in text:
                 line = self.buffer.strip()
-                import re
                 # 只处理高频进度日志，只有每500条emit一次，否则直接return
                 m1 = re.match(r"^获取 .+ 排行榜 target_rank \d+ 的数据成功 \((\d+)/(\d+)\) - 时间: .+$", line)
                 if m1:
@@ -299,17 +299,13 @@ class MainWindow(QMainWindow):
         # 检查初始状态
         self.check_battle_type_selection()
         
-        # 根据默认选中的单选按钮设置LGP类型和对应ID
+        # 根据默认选中的单选按钮设置LGP类型
         if self.personal_radio.isChecked():
-            battle_type = 'personal'
-            update_battle_type(battle_type)
-            calculate_event_id(self.current_month)
+            config.update_battle_type('personal')
         elif self.guild_radio.isChecked():
-            battle_type = 'guild'
-            update_battle_type(battle_type)
-            calculate_event_id(self.current_month)
+            config.update_battle_type('guild')
         elif self.grade_radio.isChecked():
-            calculate_grade_id(self.current_month)
+            config.calculate_grade_id(self.current_month)
     
     def set_application_style(self):
         """设置全局应用样式"""
@@ -406,6 +402,9 @@ class MainWindow(QMainWindow):
         card_layout = QVBoxLayout(card)
         card_layout.setSpacing(20)
         
+        # 添加Client Version输入框
+        self.add_client_version_input(card_layout)
+        
         # 添加LGP类型选择
         self.add_battle_type_selection(card_layout)
         
@@ -414,6 +413,57 @@ class MainWindow(QMainWindow):
         
         # 添加卡片到主布局
         layout.addWidget(card)
+    
+    def add_client_version_input(self, layout):
+        """添加Client Version输入框"""
+        # 创建分组框
+        group_box = QGroupBox("Client Version")
+        group_box.setStyleSheet(f"QGroupBox {{ color: {self.primary_color}; font-weight: bold; }}")
+        
+        # 创建水平布局
+        input_layout = QHBoxLayout()
+        
+        # 创建输入框
+        self.client_version_input = QLineEdit()
+        self.client_version_input.setPlaceholderText("输入客户端版本")
+        self.client_version_input.setText("4.0.0")  # 设置默认值
+        self.client_version_input.setStyleSheet("""
+            QLineEdit {
+                padding: 5px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background: white;
+            }
+            QLineEdit:focus {
+                border-color: #6a4dbc;
+            }
+        """)
+        
+        # 添加输入框到布局
+        input_layout.addWidget(self.client_version_input)
+        
+        # 设置分组框布局
+        group_box.setLayout(input_layout)
+        
+        # 添加到卡片布局
+        layout.addWidget(group_box)
+        
+        # 连接信号
+        self.client_version_input.textChanged.connect(self.on_client_version_changed)
+    
+    def on_client_version_changed(self, new_version):
+        """处理客户端版本变化"""
+        try:
+            # 使用config中的函数更新client version
+            import config
+            config.update_client_version(new_version)
+            
+            # 保存到account.json
+            config.save_account_config(config.ACCOUNT_DATA)
+            
+            self.add_log(f"已更新客户端版本为: {new_version}", "info")
+        except Exception as e:
+            self.add_log(f"更新客户端版本失败: {str(e)}", "error")
     
     def add_battle_type_selection(self, layout):
         """添加LGP类型选择部分"""
@@ -591,28 +641,18 @@ class MainWindow(QMainWindow):
             self.ranking_type_group_box.setVisible(True)
     
     def on_battle_type_changed(self, button):
-        """LGP类型改变事件处理"""
+        """战斗类型单选按钮变化事件处理"""
         self.check_battle_type_selection()
         
         # 更新config中的LGP类型配置
         if button == self.personal_radio:
-            update_battle_type('personal')
-            
-            # 更新活动ID
-            current_month = self.current_month
-            calculate_event_id(current_month)
-            
+            config.update_battle_type('personal')
         elif button == self.guild_radio:
-            update_battle_type('guild')
-            
-            # 更新活动ID
-            current_month = self.current_month
-            calculate_event_id(current_month)
-            
+            config.update_battle_type('guild')
         elif button == self.grade_radio:
             # 更新赛季等级ID
             current_month = self.current_month
-            calculate_grade_id(current_month)
+            config.calculate_grade_id(current_month)
     
     def on_start_button_clicked(self):
         """开始按钮点击事件处理"""
@@ -665,12 +705,16 @@ class MainWindow(QMainWindow):
         
         # 更新config中的LGP类型配置和活动ID
         if battle_type in ['personal', 'guild']:
-            update_battle_type(battle_type)
+            config.update_battle_type(battle_type)
             # 使用当前月份重新计算活动ID
-            new_event_id = calculate_event_id(self.current_month)
+            new_event_id = config.calculate_event_id(self.current_month)
+            # 保存GUI设置的活动ID
+            config.set_gui_event_id(new_event_id)
+            self.add_log(f"已设置活动ID: {new_event_id}", "info")
         elif battle_type == 'grade':
             # 更新赛季等级ID
-            new_grade_id = calculate_grade_id(self.current_month)
+            new_grade_id = config.calculate_grade_id(self.current_month)
+            self.add_log(f"已设置赛季等级ID: {new_grade_id}", "info")
         
         # 创建日志线程并启动
         self.logger_thread = LoggerThread(
@@ -788,47 +832,52 @@ class MainWindow(QMainWindow):
                 
                 # 更新config.py文件中的LGP_START_DATE
                 try:
-                    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.py')
-                    with open(config_path, 'r', encoding='utf-8') as f:
-                        config_content = f.read()
-                    
-                    # 使用正则表达式查找并替换LGP_START_DATE的定义
-                    import re
-                    # 尝试查找现有的LGP_START_DATE定义
-                    lgp_date_pattern = r'(LGP_START_DATE\s*=\s*)(None|datetime\([^)]+\))'
-                    new_date_str = f"datetime({current_year}, {self.current_month}, {latest_lgp['start_day']})"
-                    
-                    if re.search(lgp_date_pattern, config_content):
-                        # 如果找到了现有定义，就替换它
-                        new_config_content = re.sub(lgp_date_pattern, f"\\1{new_date_str}", config_content)
+                    # 处理PyInstaller打包后的路径问题
+                    if getattr(sys, 'frozen', False):
+                        # 如果是打包后的exe，不尝试修改config.py
+                        self.add_log("exe环境下跳过config.py文件更新", "info")
                     else:
-                        # 如果没找到，就在文件开头的import部分后面添加定义
-                        import_section_end = re.search(r'(from datetime import datetime\n)', config_content)
-                        if import_section_end:
-                            pos = import_section_end.end()
-                            new_config_content = (
-                                config_content[:pos] + 
-                                f"\n# LGP开始日期配置（由GUI自动更新）\nLGP_START_DATE = {new_date_str}\n\n" +
-                                config_content[pos:]
-                            )
+                        # 如果是开发环境，正常更新config.py
+                        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.py')
+                        with open(config_path, 'r', encoding='utf-8') as f:
+                            config_content = f.read()
+                        
+                        # 使用正则表达式查找并替换LGP_START_DATE的定义
+                        # 尝试查找现有的LGP_START_DATE定义
+                        lgp_date_pattern = r'(LGP_START_DATE\s*=\s*)(None|datetime\([^)]+\))'
+                        new_date_str = f"datetime({current_year}, {self.current_month}, {latest_lgp['start_day']})"
+                        
+                        if re.search(lgp_date_pattern, config_content):
+                            # 如果找到了现有定义，就替换它
+                            new_config_content = re.sub(lgp_date_pattern, f"\\1{new_date_str}", config_content)
                         else:
-                            # 如果找不到import部分，就在文件开头添加
-                            new_config_content = (
-                                "from datetime import datetime\n\n"
-                                f"# LGP开始日期配置（由GUI自动更新）\nLGP_START_DATE = {new_date_str}\n\n" +
-                                config_content
-                            )
-                    
-                    # 写入更新后的内容
-                    with open(config_path, 'w', encoding='utf-8') as f:
-                        f.write(new_config_content)
-                    
-                    self.add_log("已更新config.py文件中的LGP开始日期", "success")
-                    
-                    # 重新加载config模块以更新全局变量
-                    import config
-                    import importlib
-                    importlib.reload(config)
+                            # 如果没找到，就在文件开头的import部分后面添加定义
+                            import_section_end = re.search(r'(from datetime import datetime\n)', config_content)
+                            if import_section_end:
+                                pos = import_section_end.end()
+                                new_config_content = (
+                                    config_content[:pos] + 
+                                    f"\n# LGP开始日期配置（由GUI自动更新）\nLGP_START_DATE = {new_date_str}\n\n" +
+                                    config_content[pos:]
+                                )
+                            else:
+                                # 如果找不到import部分，就在文件开头添加
+                                new_config_content = (
+                                    "from datetime import datetime\n\n"
+                                    f"# LGP开始日期配置（由GUI自动更新）\nLGP_START_DATE = {new_date_str}\n\n" +
+                                    config_content
+                                )
+                        
+                        # 写入更新后的内容
+                        with open(config_path, 'w', encoding='utf-8') as f:
+                            f.write(new_config_content)
+                        
+                        self.add_log("已更新config.py文件中的LGP开始日期", "success")
+                        
+                        # 重新加载config模块以更新全局变量
+                        import config
+                        import importlib
+                        importlib.reload(config)
                     
                 except Exception as e:
                     self.add_log(f"更新config.py文件失败: {str(e)}", "error")
@@ -862,18 +911,6 @@ class MainWindow(QMainWindow):
                 
                 # 加载LGP图片
                 self.load_lgp_image(latest_lgp['first_img'])
-                
-                # 根据当前battle_type更新活动ID
-                if self.personal_radio.isChecked():
-                    battle_type = 'personal'
-                    update_battle_type(battle_type)
-                    calculate_event_id(self.current_month)
-                elif self.guild_radio.isChecked():
-                    battle_type = 'guild'
-                    update_battle_type(battle_type)
-                    calculate_event_id(self.current_month)
-                elif self.grade_radio.isChecked():
-                    calculate_grade_id(self.current_month)
                 
                 return latest_lgp['start_day']
             else:

@@ -14,28 +14,62 @@ import uuid
 import json
 from rank_utils import generate_rank_targets
 from datetime import datetime
+import sys
 
 # 从account.json加载账号配置
 def load_account_config():
     """从account.json加载账号配置"""
     try:
-        account_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'account.json')
+        # 处理PyInstaller打包后的路径问题
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的exe
+            base_path = sys._MEIPASS
+        else:
+            # 如果是开发环境
+            base_path = os.path.dirname(os.path.abspath(__file__))
+        
+        account_path = os.path.join(base_path, 'account.json')
         with open(account_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         print(f"加载account.json失败: {e}")
         # 返回默认配置
         return {
-           
+            "current_account": "新注册",
+            "accounts": {
+                "新注册": {
+                    "device_id": str(uuid.uuid4()),
+                    "player_id": ""
+                }
+            },
+            "auth": {
+                "token": "",
+                "resource_version": "R2505100",
+                "client_version": "3.1.0"
+            }
         }
 
 
 # 保存账号配置到account.json
 def save_account_config(account_config):
     """保存账号配置到account.json"""
-    account_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'account.json')
-    with open(account_path, 'w', encoding='utf-8') as f:
-        json.dump(account_config, f, indent=4)
+    try:
+        # 处理PyInstaller打包后的路径问题
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的exe，保存到用户目录
+            import tempfile
+            user_config_dir = os.path.join(tempfile.gettempdir(), 'LinkLike-LGP-Rank')
+            os.makedirs(user_config_dir, exist_ok=True)
+            account_path = os.path.join(user_config_dir, 'account.json')
+        else:
+            # 如果是开发环境，保存到项目目录
+            account_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'account.json')
+        
+        with open(account_path, 'w', encoding='utf-8') as f:
+            json.dump(account_config, f, indent=4)
+        print(f"配置已保存到: {account_path}")
+    except Exception as e:
+        print(f"保存account.json失败: {e}")
 
 # 加载账号配置
 ACCOUNT_DATA = load_account_config()
@@ -138,23 +172,87 @@ def calculate_event_id(month=None):
     
     return int(event_id)
 
+# GUI活动ID设置标记
+_gui_event_id_set = False  # 标记是否通过GUI设置了活动ID
+_gui_event_id = None       # 存储GUI设置的活动ID
+
+def set_gui_event_id(event_id):
+    """
+    通过GUI设置活动ID
+    
+    参数:
+        event_id: GUI设置的活动ID
+    """
+    global _gui_event_id_set, _gui_event_id
+    _gui_event_id_set = True
+    _gui_event_id = event_id
+    print(f"已通过GUI设置活动ID: {event_id}")
+
+def get_current_event_id():
+    """
+    获取当前活动ID
+    优先级：GUI设置 > 默认值705102
+    
+    返回:
+        当前使用的活动ID
+    """
+    global _gui_event_id_set, _gui_event_id
+    
+    if _gui_event_id_set and _gui_event_id is not None:
+        print(f"使用GUI设置的活动ID: {_gui_event_id}")
+        return _gui_event_id
+    else:
+        default_id = 705102  # 默认活动ID：2025年5月公会战
+        print(f"未通过GUI设置活动ID，使用默认值: {default_id}")
+        return default_id
+
 # 活动ID配置
-GRAND_PRIX_CONFIG = {
-    'current_id': calculate_event_id(),  # 动态计算当前活动ID
-    'history': {
-        # 可以记录历史活动ID,仅留档,没有实际意义,会返回开催时间外
-        '12月个人战': 804109,  # 2024年12月个人战
-        '12月公会战': 704109,  # 2024年12月公会战
-        '1月个人战': 804110,  # 2025年1月个人战
-        '1月公会战': 704110,  # 2025年1月公会战
-        '2月个人战': 804111,  # 2025年2月个人战
-        '2月公会战': 704111,  # 2025年2月公会战
-        '3月个人战': 804112,  # 2025年3月个人战
-        '3月公会战': 704112,  # 2025年3月公会战
-        '4月个人战': 805101,  # 2025年4月个人战
-        '4月公会战': 705101,  # 2025年4月公会战
-    }
-}
+class GrandPrixConfig:
+    def __init__(self):
+        self._history = {
+            # 可以记录历史活动ID,仅留档,没有实际意义,会返回开催时间外
+            '12月个人战': 804109,  # 2024年12月个人战
+            '12月公会战': 704109,  # 2024年12月公会战
+            '1月个人战': 804110,  # 2025年1月个人战
+            '1月公会战': 704110,  # 2025年1月公会战
+            '2月个人战': 804111,  # 2025年2月个人战
+            '2月公会战': 704111,  # 2025年2月公会战
+            '3月个人战': 804112,  # 2025年3月个人战
+            '3月公会战': 704112,  # 2025年3月公会战
+            '4月个人战': 805101,  # 2025年4月个人战
+            '4月公会战': 705101,  # 2025年4月公会战
+        }
+    
+    @property
+    def current_id(self):
+        """动态获取当前活动ID"""
+        return get_current_event_id()
+    
+    @property
+    def history(self):
+        """获取历史活动ID记录"""
+        return self._history
+
+GRAND_PRIX_CONFIG = GrandPrixConfig()
+
+def get_grand_prix_id():
+    """
+    动态获取当前LGP活动ID
+    这个函数会实时检查GUI设置状态，确保返回最新的活动ID
+    
+    返回:
+        当前使用的LGP活动ID
+    """
+    return get_current_event_id()
+
+def get_current_season_grade_id():
+    """
+    动态获取当前赛季等级ID
+    
+    返回:
+        当前使用的赛季等级ID
+    """
+    return calculate_grade_id()
 
 # 计算赛季等级ID的函数
 def calculate_grade_id(month=None):
@@ -206,7 +304,7 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_PATH = os.path.join(CURRENT_DIR, generate_save_directory())  # 动态生成保存路径文件夹
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(2025, 5, 11)  # 初始化为None，强制必须通过update_lgp_start_date设置
+LGP_START_DATE = datetime(2025, 5, 21)  # 初始化为None，强制必须通过update_lgp_start_date设置
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):
@@ -336,10 +434,13 @@ PLAYER_IDS = {
 # 从account.json加载授权信息
 AUTH_DATA = ACCOUNT_DATA["auth"]
 
+# 设置默认的client version
+DEFAULT_CLIENT_VERSION = "4.0.1"
+
 # API Headers
 HEADERS = {
     "x-res-version": AUTH_DATA["resource_version"],  # 从account.json加载
-    "x-client-version": AUTH_DATA["client_version"],  # 从account.json加载
+    "x-client-version": AUTH_DATA.get("client_version", DEFAULT_CLIENT_VERSION),  # 默认使用4.0.0，可由GUI更新
     "x-device-specific-id": DEVICE_ID,
     "x-device-type": "android",
     "x-idempotency-key": "c98f77c1cc4a47f4b88720283ca3392b",
@@ -351,6 +452,19 @@ HEADERS = {
     "Content-Type": "application/json",
     "Accept-Encoding": "gzip, deflate"
 }
+
+# 更新client version的函数
+def update_client_version(new_version):
+    """
+    更新client version
+    
+    参数:
+        new_version: 新的客户端版本号
+    """
+    global HEADERS
+    HEADERS["x-client-version"] = new_version
+    # 同时更新AUTH_DATA
+    AUTH_DATA["client_version"] = new_version
 
 # 角色ID与名称映射
 CHARACTER_NAMES = {

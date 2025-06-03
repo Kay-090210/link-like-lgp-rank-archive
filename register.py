@@ -9,23 +9,7 @@ TEMP_DEVICE_ID = str(uuid.uuid4())
 
 URL = "https://api.link-like-lovelive.app/v1/register/approve_terms"
 
-# 基于固定请求头构建注册专用请求头
-HEADERS = {
-    "x-res-version": "R2504400",
-    "x-client-version": "3.1.0",
-    "x-device-specific-id": TEMP_DEVICE_ID,
-    "x-device-type": "android",
-    "x-idempotency-key": "c98f77c1cc4a47f4b88720283ca3392b",
-    "inspix-user-api-version": "1.0.0",
-    "x-api-key": "4e769efa67d8f54be0b67e8f70ccb23d513a3c841191b6b2ba45ffc6fb498068",
-    "User-Agent": "inspix-android/3.0.10",
-    "Accept": "application/json",
-    "Accept-Encoding": "gzip, deflate",
-    "Content-Type": "application/json",
-}
-
-DATA = {"platform_type": 1}  # 1 = Android
-
+# 加载账号配置获取版本号
 def load_account_config():
     """从account.json加载账号配置"""
     try:
@@ -49,6 +33,28 @@ def load_account_config():
                 "client_version": "3.1.0"
             }
         }
+
+# 从配置中获取版本号
+account_config = load_account_config()
+RESOURCE_VERSION = account_config["auth"]["resource_version"]
+CLIENT_VERSION = account_config["auth"]["client_version"]
+
+# 基于固定请求头构建注册专用请求头
+HEADERS = {
+    "x-res-version": RESOURCE_VERSION,
+    "x-client-version": CLIENT_VERSION,
+    "x-device-specific-id": TEMP_DEVICE_ID,
+    "x-device-type": "android",
+    "x-idempotency-key": "c98f77c1cc4a47f4b88720283ca3392b",
+    "inspix-user-api-version": "1.0.0",
+    "x-api-key": "4e769efa67d8f54be0b67e8f70ccb23d513a3c841191b6b2ba45ffc6fb498068",
+    "User-Agent": "inspix-android/3.0.10",
+    "Accept": "application/json",
+    "Accept-Encoding": "gzip, deflate",
+    "Content-Type": "application/json",
+}
+
+DATA = {"platform_type": 1}  # 1 = Android
 
 def save_account_config(account_config):
     """保存账号配置到account.json"""

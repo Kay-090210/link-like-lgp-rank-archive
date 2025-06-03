@@ -12,7 +12,7 @@ from threading import Lock
 from config import (
     HEADERS, RANKING_URL, PROFILE_URL, SAVE_PATH, 
     FILE_NAMES, target_ranks, GRAND_PRIX_CONFIG, CHARACTER_NAMES,
-    generate_filename_prefix, get_filename, LGP_START_DATE
+    generate_filename_prefix, get_filename, LGP_START_DATE, get_grand_prix_id
 )
 from utils import get_player_profile, log_progress, retry_request, fetch_player_profile
 import requests
@@ -79,7 +79,7 @@ class RankingDataCollector:
             return []
             
         ranking_payload = {
-            "grand_prix_id": GRAND_PRIX_CONFIG['current_id'],
+            "grand_prix_id": get_grand_prix_id(),
             "ranking_type": ranking_type,  # 1公会榜,2个人榜,3会内榜，20前日榜，21当日榜，10A，11B，12C，31公会当日，30公会前日
             "get_rank_type": 2,
             "target_rank": target_rank

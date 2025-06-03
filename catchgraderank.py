@@ -11,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from config import (
     HEADERS, GRADE_RANKING_URL, PROFILE_URL, SAVE_PATH, 
-    FILE_NAMES, target_ranks, CHARACTER_NAMES, SEASON_GRADE_ID
+    FILE_NAMES, target_ranks, CHARACTER_NAMES, SEASON_GRADE_ID,
+    get_current_season_grade_id
 )
 from utils import log_progress, retry_request, fetch_player_profile
 import requests
@@ -39,6 +40,11 @@ class GradeRankingDataCollector:
         self.processed_player_ids = set()
         # 保存headers的副本，用于请求
         self.headers = HEADERS.copy()
+        # 添加日志计数器
+        self.log_counters = {
+            'fetch_grade_ranking': 0,
+            'fetch_profile': 0
+        }
     
     def perform_login(self):
         """执行登录并获取新token"""
@@ -145,7 +151,7 @@ class GradeRankingDataCollector:
             return []
             
         ranking_payload = {
-            "season_grade_id": self.season_grade_id.get('current'),
+            "season_grade_id": get_current_season_grade_id(),
             "get_rank_type": 0,
             "target_rank": target_rank
         }
@@ -172,7 +178,10 @@ class GradeRankingDataCollector:
             
             with self.lock:
                 self.completed_count_step1 += 1
-                log_progress(f"获取赛季等级 target_rank {target_rank} 的数据成功 ({self.completed_count_step1}/{total})")
+                self.log_counters['fetch_grade_ranking'] += 1
+                # 每500条输出一次进度
+                if self.log_counters['fetch_grade_ranking'] % 500 == 0:
+                    log_progress(f"已完成{self.completed_count_step1}/{total}条赛季等级排名数据采集...")
             return player_list
         return response  # 返回response对象让装饰器处理
 
@@ -191,7 +200,10 @@ class GradeRankingDataCollector:
         if result:
             with self.lock:
                 self.completed_count_step2 += 1
-                log_progress(f"请求 player_id {player_info['player_id']} 的信息成功 ({self.completed_count_step2}/{total})")
+                self.log_counters['fetch_profile'] += 1
+                # 每500条输出一次进度
+                if self.log_counters['fetch_profile'] % 500 == 0:
+                    log_progress(f"已完成{self.completed_count_step2}/{total}条玩家详细信息采集...")
             return result
         return None
 

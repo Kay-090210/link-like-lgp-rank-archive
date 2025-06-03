@@ -160,3 +160,7 @@ cython_debug/
 #.idea/
 account.json
 app.ico
+build
+dist
+*.spec
+test.py
