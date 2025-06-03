@@ -14,6 +14,11 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 import time
 import uuid
+import logging
+import sys
+from logging_config import setup_logging
+
+setup_logging()
 from config import HEADERS, PROFILE_URL, CHARACTER_NAMES, BASE_URL, LOGIN_CONFIG, DEVICE_ID
 
 
@@ -40,10 +45,8 @@ def retry_request(func, max_retries=3, initial_delay=1):
                         # 检查是否返回了错误代码21001_210102（非比赛期间），无论状态码是什么
                         if isinstance(response_json, dict) and response_json.get("error_code") == "21001_210102":
                             error_msg = response_json.get("message", "未知错误")
-                            print(f"检测到关键错误: {error_msg}")
-                            print("检测到非比赛期间，停止脚本执行")
-                            import sys
-                            sys.exit(1)  # 直接终止程序
+                            logging.error(f"检测到关键错误: {error_msg}")
+                            sys.exit(1)
                     except Exception as e:
                         # 如果不能解析JSON，继续处理
                         pass
@@ -56,18 +59,16 @@ def retry_request(func, max_retries=3, initial_delay=1):
                             # 直接返回错误信息，让调用方处理
                             return response_json
                         return response_json
-                    print(f"请求失败，状态码：{response.status_code}")
-                    print(f"响应内容：{response.text}")
+                    logging.warning(f"请求失败，状态码：{response.status_code}")
+                    logging.debug(f"响应内容：{response.text}")
                     
                     # 检查失败响应中是否包含非比赛期间错误
                     try:
                         error_data = response.json()
                         if isinstance(error_data, dict) and error_data.get("error_code") == "21001_210102":
                             error_msg = error_data.get("message", "未知错误")
-                            print(f"检测到关键错误: {error_msg}")
-                            print("检测到非比赛期间，停止脚本执行")
-                            import sys
-                            sys.exit(1)  # 直接终止程序
+                            logging.error(f"检测到关键错误: {error_msg}")
+                            sys.exit(1)
                     except:
                         # 忽略解析错误
                         pass
@@ -91,19 +92,17 @@ def retry_request(func, max_retries=3, initial_delay=1):
                             error_data = json.loads(last_response)
                             if isinstance(error_data, dict) and error_data.get("error_code") == "21001_210102":
                                 error_msg = error_data.get("message", "未知错误")
-                                print(f"检测到关键错误: {error_msg}")
-                                print("检测到非比赛期间，停止脚本执行")
-                                import sys
-                                sys.exit(1)  # 直接终止程序
+                                logging.error(f"检测到关键错误: {error_msg}")
+                                sys.exit(1)
                         except:
                             # 忽略解析错误
                             pass
                 
                 retries += 1
                 if retries == max_retries:
-                    print(f"最终失败: {last_error}")
+                    logging.error(f"最终失败: {last_error}")
                     if last_response:
-                        print(f"最后的响应内容: {last_response}")
+                        logging.error(f"最后的响应内容: {last_response}")
                         
                         # 最后一次检查错误响应是否包含非比赛期间错误
                         try:
@@ -111,10 +110,8 @@ def retry_request(func, max_retries=3, initial_delay=1):
                             error_data = json.loads(last_response)
                             if isinstance(error_data, dict) and error_data.get("error_code") == "21001_210102":
                                 error_msg = error_data.get("message", "未知错误")
-                                print(f"检测到关键错误: {error_msg}")
-                                print("检测到非比赛期间，停止脚本执行")
-                                import sys
-                                sys.exit(1)  # 直接终止程序
+                                logging.error(f"检测到关键错误: {error_msg}")
+                                sys.exit(1)
                         except:
                             # 忽略解析错误
                             pass
@@ -122,16 +119,18 @@ def retry_request(func, max_retries=3, initial_delay=1):
                     return None
                 # 使用指数退避计算等待时间：2^重试次数 * 初始延迟
                 wait_time = initial_delay * (2 ** (retries - 1))
-                print(f"第 {retries} 次尝试失败: {last_error}, {wait_time} 秒后重试...")
+                logging.warning(
+                    f"第 {retries} 次尝试失败: {last_error}, {wait_time} 秒后重试...")
                 time.sleep(wait_time)
             except Exception as e:
                 last_error = str(e)
                 retries += 1
                 if retries == max_retries:
-                    print(f"最终失败: {last_error}")
+                    logging.error(f"最终失败: {last_error}")
                     return None
                 wait_time = initial_delay * (2 ** (retries - 1))
-                print(f"第 {retries} 次尝试失败: {last_error}, {wait_time} 秒后重试...")
+                logging.warning(
+                    f"第 {retries} 次尝试失败: {last_error}, {wait_time} 秒后重试...")
                 time.sleep(wait_time)
         return None
     return wrapper
@@ -219,7 +218,7 @@ def get_circle_history(headers: Dict[str, str], circle_history_url: str, grand_p
 def log_progress(message: str):
     """记录进度信息"""
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{message} - 时间: {current_time}") 
+    logging.info(f"{message} - 时间: {current_time}")
 
 def fetch_player_profile(player_info: dict, include_last_login: bool = False, headers: Dict[str, str] = None) -> dict:
     """
