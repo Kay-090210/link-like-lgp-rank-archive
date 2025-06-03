@@ -426,7 +426,7 @@ class MainWindow(QMainWindow):
         # 创建输入框
         self.client_version_input = QLineEdit()
         self.client_version_input.setPlaceholderText("输入客户端版本")
-        self.client_version_input.setText("4.0.0")  # 设置默认值
+        self.client_version_input.setText("4.0.1")  # 设置默认值
         self.client_version_input.setStyleSheet("""
             QLineEdit {
                 padding: 5px;

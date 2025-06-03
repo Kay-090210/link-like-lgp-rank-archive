@@ -1,13 +1,10 @@
 {
     "current_account": "\u65b0\u6ce8\u518c",
     "accounts": {
-        "\u65b0\u6ce8\u518c": {
-            "device_id": "d8c445f3-9c47-4c45-83ae-d0cf1b5f3838",
-            "player_id": "8CAET1AXK"
-        }
+       
     },
     "auth": {
-        "token": "53f0e7e7-79d4-47ec-9dd4-65001e74fec1",
+        "token": "3c2ce6c8-3296-4e03-84c2-9f7a4ed5cdac",
         "resource_version": "R2505300",
         "client_version": "4.0.1"
     }
