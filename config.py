@@ -16,6 +16,14 @@ from rank_utils import generate_rank_targets
 from datetime import datetime
 import sys
 
+# Client Version管理
+# ==================
+# DEFAULT_CLIENT_VERSION是所有client version的单一真理来源
+# - 作为account.json中client_version的默认值
+# - 当account.json中没有client_version时使用此值
+# - 可通过update_client_version()函数统一更新所有相关配置
+DEFAULT_CLIENT_VERSION = "4.0.1"
+
 # 从account.json加载账号配置
 def load_account_config():
     """从account.json加载账号配置"""
@@ -45,7 +53,7 @@ def load_account_config():
             "auth": {
                 "token": "",
                 "resource_version": "R2505100",
-                "client_version": "3.1.0"
+                "client_version": DEFAULT_CLIENT_VERSION  # 使用统一的默认版本
             }
         }
 
@@ -434,13 +442,10 @@ PLAYER_IDS = {
 # 从account.json加载授权信息
 AUTH_DATA = ACCOUNT_DATA["auth"]
 
-# 设置默认的client version
-DEFAULT_CLIENT_VERSION = "4.0.1"
-
 # API Headers
 HEADERS = {
     "x-res-version": AUTH_DATA["resource_version"],  # 从account.json加载
-    "x-client-version": AUTH_DATA.get("client_version", DEFAULT_CLIENT_VERSION),  # 默认使用4.0.0，可由GUI更新
+    "x-client-version": AUTH_DATA.get("client_version", DEFAULT_CLIENT_VERSION),  # 从account.json加载，默认使用DEFAULT_CLIENT_VERSION
     "x-device-specific-id": DEVICE_ID,
     "x-device-type": "android",
     "x-idempotency-key": "c98f77c1cc4a47f4b88720283ca3392b",
@@ -456,15 +461,34 @@ HEADERS = {
 # 更新client version的函数
 def update_client_version(new_version):
     """
-    更新client version
+    更新client version，同时更新Headers、AUTH_DATA和account.json
     
     参数:
         new_version: 新的客户端版本号
     """
-    global HEADERS
+    global HEADERS, AUTH_DATA, ACCOUNT_DATA
+    
+    # 更新Headers
     HEADERS["x-client-version"] = new_version
-    # 同时更新AUTH_DATA
+    
+    # 更新AUTH_DATA
     AUTH_DATA["client_version"] = new_version
+    
+    # 更新ACCOUNT_DATA并保存到文件
+    ACCOUNT_DATA["auth"]["client_version"] = new_version
+    save_account_config(ACCOUNT_DATA)
+    
+    print(f"已更新client version为: {new_version}")
+
+def get_current_client_version():
+    """
+    获取当前client version
+    优先级：account.json中的值 > DEFAULT_CLIENT_VERSION
+    
+    返回:
+        当前使用的client version
+    """
+    return AUTH_DATA.get("client_version", DEFAULT_CLIENT_VERSION)
 
 # 角色ID与名称映射
 CHARACTER_NAMES = {

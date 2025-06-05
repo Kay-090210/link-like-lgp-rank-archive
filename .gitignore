@@ -165,3 +165,4 @@ dist
 *.spec
 test.py
 *.ico
+account.json
