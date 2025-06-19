@@ -22,7 +22,7 @@ import sys
 # - 作为account.json中client_version的默认值
 # - 当account.json中没有client_version时使用此值
 # - 可通过update_client_version()函数统一更新所有相关配置
-DEFAULT_CLIENT_VERSION = "4.0.1"
+DEFAULT_CLIENT_VERSION = "4.1.10"
 
 # 从account.json加载账号配置
 def load_account_config():
@@ -52,7 +52,7 @@ def load_account_config():
             },
             "auth": {
                 "token": "",
-                "resource_version": "R2505100",
+                "resource_version": "R2506000",
                 "client_version": DEFAULT_CLIENT_VERSION  # 使用统一的默认版本
             }
         }
@@ -92,6 +92,7 @@ PETAL_EXCHANGE_URL = f"{BASE_URL}/petal_exchange/get_list"
 FANLV_URL = f"{BASE_URL}/profile/get_fan_level_info"
 CIRCLE_HISTORY_URL = f"{BASE_URL}/out_quest_live/grand_prix/get_history"
 GRADE_RANKING_URL = f"{BASE_URL}/out_quest_live/grade/get_ranking_list"
+GET_DESCRIPTION_URL = f"{BASE_URL}/archive/get_home"
 
 # LGP类型配置（默认为个人战）
 BATTLE_TYPE = {
@@ -207,11 +208,9 @@ def get_current_event_id():
     global _gui_event_id_set, _gui_event_id
     
     if _gui_event_id_set and _gui_event_id is not None:
-        print(f"使用GUI设置的活动ID: {_gui_event_id}")
         return _gui_event_id
     else:
-        default_id = 705102  # 默认活动ID：2025年5月公会战
-        print(f"未通过GUI设置活动ID，使用默认值: {default_id}")
+        default_id = 805103  # 默认活动ID
         return default_id
 
 # 活动ID配置
@@ -229,6 +228,10 @@ class GrandPrixConfig:
             '3月公会战': 704112,  # 2025年3月公会战
             '4月个人战': 805101,  # 2025年4月个人战
             '4月公会战': 705101,  # 2025年4月公会战
+            '5月个人战': 805102,  # 2025年5月个人战
+            '5月公会战': 705102,  # 2025年5月公会战
+            '6月个人战': 805103,  # 2025年6月个人战
+            '6月公会战': 705103,  # 2025年6月公会战
         }
     
     @property
@@ -312,7 +315,7 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_PATH = os.path.join(CURRENT_DIR, generate_save_directory())  # 动态生成保存路径文件夹
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(2025, 5, 21)  # 初始化为None，强制必须通过update_lgp_start_date设置
+LGP_START_DATE = datetime(2025, 6, 15)  # 初始化为None，强制必须通过update_lgp_start_date设置
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):

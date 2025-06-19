@@ -187,6 +187,25 @@ def get_ranking(headers: Dict[str, str], ranking_url: str) -> Optional[Dict[str,
         return response.json()
     return response  # 直接返回 response 对象，让装饰器处理错误情况 
 
+@retry_request
+def get_description(headers: Dict[str, str], description_url: str) -> Optional[Dict[str, Any]]:
+    """
+    获取描述信息
+    
+    Returns:
+        Dict包含三个字段:
+        - name: 标题
+        - description: 描述
+        - thumbnail_image_url: 缩略图URL
+    """
+    response = requests.post(
+        description_url,
+        headers=headers,
+    )
+    if response.status_code == 200:
+        return response.json()
+    return response  # 直接返回 response 对象，让装饰器处理错误情况
+
 def get_grade_ranking(headers: Dict[str, str], grade_ranking_url: str) -> Optional[Dict[str, Any]]:
     """获取赛季等级排名数据"""
     response = requests.post(
@@ -280,7 +299,7 @@ def fetch_player_profile(player_info: dict, include_last_login: bool = False, he
         total_level = sum(level for char_id, level in character_levels.items() if char_id not in [1021,1022,1023])
         
         # 计算104季度等级总和（季度等级总和排除泉和塞拉斯）
-        total_104_level = sum(level for char_id, level in character_levels.items() if char_id not in [1021,1022,1023,1051, 1052])
+        # total_104_level = sum(level for char_id, level in character_levels.items() if char_id not in [1021,1022,1023,1051, 1052])
         
         # 按照CHARACTER_NAMES的顺序添加角色信息
         for character_id, character_name in CHARACTER_NAMES.items():
@@ -288,7 +307,7 @@ def fetch_player_profile(player_info: dict, include_last_login: bool = False, he
             
         # 添加总和列
         player_data["季度等级"] = total_level
-        player_data["104季度等级"] = total_104_level
+        # player_data["104季度等级"] = total_104_level
         
         return player_data
     return None

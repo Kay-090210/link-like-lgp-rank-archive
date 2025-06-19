@@ -37,9 +37,21 @@ class RankingDataCollector:
         ranking_day_type: 排行榜日期类型，20为前日榜，21为当日榜(默认)
         """
         # 重新加载config模块以确保获取最新的LGP_START_DATE
+        # 但需要保留GUI设置的活动ID
         import importlib
         import config
+        
+        # 保存GUI设置的活动ID（如果存在）
+        gui_event_id_set = getattr(config, '_gui_event_id_set', False)
+        gui_event_id = getattr(config, '_gui_event_id', None)
+        
         importlib.reload(config)
+        
+        # 恢复GUI设置的活动ID
+        if gui_event_id_set and gui_event_id is not None:
+            config._gui_event_id_set = gui_event_id_set
+            config._gui_event_id = gui_event_id
+        
         from config import (
             HEADERS, RANKING_URL, PROFILE_URL, SAVE_PATH, 
             FILE_NAMES, target_ranks, GRAND_PRIX_CONFIG, CHARACTER_NAMES,
@@ -52,6 +64,12 @@ class RankingDataCollector:
         self.target_ranks = target_ranks
         self.stop_rank = float('inf')  # 记录获取到空列表的排名
         self.ranking_day_type = ranking_day_type  # 存储排行榜日期类型
+        
+        # 新增：日志计数器，用于控制高频日志输出
+        self.log_counters = {
+            'fetch_ranking': 0,
+            'fetch_profile': 0
+        }
         
         # 检查LGP开始日期是否已设置
         if LGP_START_DATE is None:
@@ -107,7 +125,10 @@ class RankingDataCollector:
             
             with self.lock:
                 self.completed_count_step1 += 1
-                log_progress(f"获取 {self.ranking_types[ranking_type]} 排行榜 target_rank {target_rank} 的数据成功 ({self.completed_count_step1}/{total})")
+                self.log_counters['fetch_ranking'] += 1
+                # 每500条或完成时输出进度
+                if self.log_counters['fetch_ranking'] % 500 == 0 or self.completed_count_step1 == total:
+                    log_progress(f"已采集({self.completed_count_step1}/{total})条排行榜数据")
             return player_list
         return response  # 返回response对象让装饰器处理
 
@@ -126,7 +147,10 @@ class RankingDataCollector:
         if result:
             with self.lock:
                 self.completed_count_step2 += 1
-                log_progress(f"请求 player_id {player_info['player_id']} 的信息成功 ({self.completed_count_step2}/{total})")
+                self.log_counters['fetch_profile'] += 1
+                # 每500条或完成时输出进度
+                if self.log_counters['fetch_profile'] % 500 == 0 or self.completed_count_step2 == total:
+                    log_progress(f"已采集({self.completed_count_step2}/{total})条玩家详细信息")
             return result
         return None
 
@@ -212,7 +236,17 @@ class RankingDataCollector:
             # 重新导入config模块获取最新的HEADERS
             try:
                 if 'config' in sys.modules:
+                    # 保存GUI设置的活动ID（如果存在）
+                    gui_event_id_set = getattr(sys.modules['config'], '_gui_event_id_set', False)
+                    gui_event_id = getattr(sys.modules['config'], '_gui_event_id', None)
+                    
                     importlib.reload(sys.modules['config'])
+                    
+                    # 恢复GUI设置的活动ID
+                    if gui_event_id_set and gui_event_id is not None:
+                        sys.modules['config']._gui_event_id_set = gui_event_id_set
+                        sys.modules['config']._gui_event_id = gui_event_id
+                    
                     from config import HEADERS as NEW_HEADERS
                     # 更新实例的headers
                     self.headers = NEW_HEADERS.copy()

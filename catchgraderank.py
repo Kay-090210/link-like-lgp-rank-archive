@@ -119,7 +119,17 @@ class GradeRankingDataCollector:
             # 重新导入config模块获取最新的HEADERS
             try:
                 if 'config' in sys.modules:
+                    # 保存GUI设置的活动ID（如果存在）
+                    gui_event_id_set = getattr(sys.modules['config'], '_gui_event_id_set', False)
+                    gui_event_id = getattr(sys.modules['config'], '_gui_event_id', None)
+                    
                     importlib.reload(sys.modules['config'])
+                    
+                    # 恢复GUI设置的活动ID
+                    if gui_event_id_set and gui_event_id is not None:
+                        sys.modules['config']._gui_event_id_set = gui_event_id_set
+                        sys.modules['config']._gui_event_id = gui_event_id
+                    
                     from config import HEADERS as NEW_HEADERS
                     # 更新实例的headers
                     self.headers = NEW_HEADERS.copy()
@@ -179,9 +189,9 @@ class GradeRankingDataCollector:
             with self.lock:
                 self.completed_count_step1 += 1
                 self.log_counters['fetch_grade_ranking'] += 1
-                # 每500条输出一次进度
-                if self.log_counters['fetch_grade_ranking'] % 500 == 0:
-                    log_progress(f"已完成{self.completed_count_step1}/{total}条赛季等级排名数据采集...")
+                # 每500条或完成时输出进度
+                if self.log_counters['fetch_grade_ranking'] % 500 == 0 or self.completed_count_step1 == total:
+                    log_progress(f"已采集({self.completed_count_step1}/{total})条赛季等级排名数据")
             return player_list
         return response  # 返回response对象让装饰器处理
 
@@ -201,9 +211,9 @@ class GradeRankingDataCollector:
             with self.lock:
                 self.completed_count_step2 += 1
                 self.log_counters['fetch_profile'] += 1
-                # 每500条输出一次进度
-                if self.log_counters['fetch_profile'] % 500 == 0:
-                    log_progress(f"已完成{self.completed_count_step2}/{total}条玩家详细信息采集...")
+                # 每500条或完成时输出进度
+                if self.log_counters['fetch_profile'] % 500 == 0 or self.completed_count_step2 == total:
+                    log_progress(f"已采集({self.completed_count_step2}/{total})条玩家详细信息")
             return result
         return None
 

@@ -109,9 +109,20 @@ def check_and_run_register():
         register_account()
         log_progress("注册程序执行完成")
         # 重新加载config模块以获取更新后的配置
+        # 但需要保留GUI设置的活动ID
         import importlib
         import config
+        
+        # 保存GUI设置的活动ID（如果存在）
+        gui_event_id_set = getattr(config, '_gui_event_id_set', False)
+        gui_event_id = getattr(config, '_gui_event_id', None)
+        
         importlib.reload(config)
+        
+        # 恢复GUI设置的活动ID
+        if gui_event_id_set and gui_event_id is not None:
+            config._gui_event_id_set = gui_event_id_set
+            config._gui_event_id = gui_event_id
         return True
     except Exception as e:
         log_progress(f"注册程序执行失败: {e}")

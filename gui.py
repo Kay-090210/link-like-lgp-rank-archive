@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 import atexit
 import re
+import logging
 import config
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -71,6 +72,24 @@ class ImageLoader(QObject):
         except Exception as e:
             self.load_error.emit(f"处理图片时发生错误: {str(e)}")
 
+class GuiLogHandler(logging.Handler):
+    """
+    自定义的logging处理器，将logging的输出重定向到GUI的日志信号
+    """
+    def __init__(self, signal_func):
+        super().__init__()
+        self.signal_func = signal_func
+        
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            # 根据日志级别设置类型
+            log_type = 'error' if record.levelno >= logging.ERROR else 'warning' if record.levelno >= logging.WARNING else 'info'
+            self.signal_func(msg, log_type)
+        except Exception:
+            # 忽略处理过程中的错误，避免递归
+            pass
+
 class LoggerThread(QThread):
     """
     日志线程，用于异步执行数据获取任务并输出日志
@@ -89,6 +108,9 @@ class LoggerThread(QThread):
         # 保存原始流以便恢复
         self.old_stdout = None
         self.old_stderr = None
+        # 保存原始logging配置
+        self.original_handlers = None
+        self.gui_log_handler = None
         
     # 自定义输出重定向类
     class StreamRedirector:
@@ -107,23 +129,26 @@ class LoggerThread(QThread):
             self.buffer += text
             if '\n' in text:
                 line = self.buffer.strip()
-                # 只处理高频进度日志，只有每500条emit一次，否则直接return
-                m1 = re.match(r"^获取 .+ 排行榜 target_rank \d+ 的数据成功 \((\d+)/(\d+)\) - 时间: .+$", line)
+                # 只处理高频进度日志，每500条和完成时emit一次
+                # 匹配两种可能的日志格式：标准logging格式和直接print格式
+                m1 = re.search(r"获取 .+ 排行榜 target_rank \d+ 的数据成功 \((\d+)/(\d+)\)", line)
                 if m1:
                     self.progress_counters['fetch_ranking'] += 1
                     count = self.progress_counters['fetch_ranking']
-                    total = m1.group(2)
-                    if count % 500 == 0:
-                        self.signal_func(f"已完成{count}/{total}条排行榜数据采集...", 'info')
+                    total = int(m1.group(2))
+                    # 每500条或完成时输出进度
+                    if count % 500 == 0 or count == total:
+                        self.signal_func(f"已采集({count}/{total})条排行榜数据", 'info')
                     self.buffer = ""
                     return  # 其余高频进度日志不emit
-                m2 = re.match(r"^请求 player_id .+ 的信息成功 \((\d+)/(\d+)\) - 时间: .+$", line)
+                m2 = re.search(r"请求 player_id .+ 的信息成功 \((\d+)/(\d+)\)", line)
                 if m2:
                     self.progress_counters['fetch_profile'] += 1
                     count = self.progress_counters['fetch_profile']
-                    total = m2.group(2)
-                    if count % 500 == 0:
-                        self.signal_func(f"已完成{count}/{total}条玩家详细信息采集...", 'info')
+                    total = int(m2.group(2))
+                    # 每500条或完成时输出进度
+                    if count % 500 == 0 or count == total:
+                        self.signal_func(f"已采集({count}/{total})条玩家详细信息", 'info')
                     self.buffer = ""
                     return  # 其余高频进度日志不emit
                 # 检测特定错误信息，设置错误标志
@@ -148,9 +173,58 @@ class LoggerThread(QThread):
                 self.signal_func(self.buffer.strip(), 'info')
                 self.buffer = ""
     
+    def setup_logging_handler(self):
+        """设置logging处理器来捕获logging输出"""
+        try:
+            # 获取根logger
+            root_logger = logging.getLogger()
+            
+            # 保存原始处理器
+            self.original_handlers = root_logger.handlers.copy()
+            
+            # 创建GUI处理器
+            self.gui_log_handler = GuiLogHandler(self.log_signal.emit)
+            self.gui_log_handler.setLevel(logging.INFO)  # 只捕获INFO级别及以上的日志
+            
+            # 清除现有处理器并添加我们的处理器
+            root_logger.handlers.clear()
+            root_logger.addHandler(self.gui_log_handler)
+            root_logger.setLevel(logging.INFO)  # 设置为INFO级别，避免DEBUG日志泛滥
+            
+            # 禁用第三方库的调试日志
+            logging.getLogger('urllib3').setLevel(logging.WARNING)
+            logging.getLogger('requests').setLevel(logging.WARNING)
+            logging.getLogger('http').setLevel(logging.WARNING)
+            logging.getLogger('httpx').setLevel(logging.WARNING)
+            
+        except Exception as e:
+            # 如果设置失败，发送错误信号
+            self.log_signal.emit(f"设置logging处理器失败: {str(e)}", "error")
+    
+    def cleanup_logging_handler(self):
+        """清理logging处理器并恢复原始配置"""
+        try:
+            if self.gui_log_handler:
+                root_logger = logging.getLogger()
+                root_logger.removeHandler(self.gui_log_handler)
+                self.gui_log_handler = None
+                
+                # 恢复原始处理器
+                if self.original_handlers:
+                    for handler in self.original_handlers:
+                        root_logger.addHandler(handler)
+                    self.original_handlers = None
+        except Exception:
+            # 忽略清理过程中的错误
+            pass
+    
     def terminate(self):
         """安全终止线程"""
         self.is_running = False
+        
+        # 清理logging处理器
+        self.cleanup_logging_handler()
+        
         # 恢复标准输出和标准错误流（如果已被重定向）
         if self.old_stdout is not None:
             sys.stdout = self.old_stdout
@@ -175,6 +249,9 @@ class LoggerThread(QThread):
         stderr_redirector = self.StreamRedirector(lambda msg, _: self.log_signal.emit(msg, 'error'), self.reset_button_signal)
         sys.stdout = stdout_redirector
         sys.stderr = stderr_redirector
+        
+        # 设置logging处理器
+        self.setup_logging_handler()
         
         data_collected = False  # 标记是否成功收集了数据
         error_occurred = False  # 标记是否发生了错误
@@ -227,6 +304,9 @@ class LoggerThread(QThread):
                 # 确保发送重置按钮的信号
                 self.reset_button_signal.emit()
         finally:
+            # 清理logging处理器
+            self.cleanup_logging_handler()
+            
             # 仅当标准输出和错误流仍被重定向时才恢复它们
             if sys.stdout != self.old_stdout and self.old_stdout is not None:
                 sys.stdout = self.old_stdout
@@ -426,7 +506,7 @@ class MainWindow(QMainWindow):
         # 创建输入框
         self.client_version_input = QLineEdit()
         self.client_version_input.setPlaceholderText("输入客户端版本")
-        self.client_version_input.setText("4.0.1")  # 设置默认值
+        self.client_version_input.setText(config.DEFAULT_CLIENT_VERSION)  # 设置默认值
         self.client_version_input.setStyleSheet("""
             QLineEdit {
                 padding: 5px;
@@ -777,6 +857,10 @@ class MainWindow(QMainWindow):
                 if not self.logger_thread.wait(3000):
                     self.add_log("无法正常终止线程，强制关闭", "error")
                 
+                # 确保logging处理器被清理
+                if hasattr(self.logger_thread, 'cleanup_logging_handler'):
+                    self.logger_thread.cleanup_logging_handler()
+                
                 # 确保所有标准流都恢复到原始状态
                 if hasattr(self.logger_thread, 'old_stdout') and self.logger_thread.old_stdout is not None:
                     sys.stdout = self.logger_thread.old_stdout
@@ -875,9 +959,20 @@ class MainWindow(QMainWindow):
                         self.add_log("已更新config.py文件中的LGP开始日期", "success")
                         
                         # 重新加载config模块以更新全局变量
+                        # 但需要保留GUI设置的活动ID
                         import config
                         import importlib
+                        
+                        # 保存GUI设置的活动ID（如果存在）
+                        gui_event_id_set = getattr(config, '_gui_event_id_set', False)
+                        gui_event_id = getattr(config, '_gui_event_id', None)
+                        
                         importlib.reload(config)
+                        
+                        # 恢复GUI设置的活动ID
+                        if gui_event_id_set and gui_event_id is not None:
+                            config._gui_event_id_set = gui_event_id_set
+                            config._gui_event_id = gui_event_id
                     
                 except Exception as e:
                     self.add_log(f"更新config.py文件失败: {str(e)}", "error")
@@ -969,6 +1064,10 @@ if __name__ == "__main__":
                 # 等待线程终止，但不超过2秒
                 window.logger_thread.wait(2000)
                 
+                # 清理logging处理器
+                if hasattr(window.logger_thread, 'cleanup_logging_handler'):
+                    window.logger_thread.cleanup_logging_handler()
+                
                 # 恢复标准输出和标准错误流
                 if hasattr(window.logger_thread, 'old_stdout') and window.logger_thread.old_stdout is not None:
                     sys.stdout = window.logger_thread.old_stdout
@@ -976,6 +1075,16 @@ if __name__ == "__main__":
                     sys.stderr = window.logger_thread.old_stderr
             except (RuntimeError, AttributeError):
                 # 对象可能在操作过程中被删除
+                # 确保logging处理器被清理
+                try:
+                    root_logger = logging.getLogger()
+                    # 移除所有处理器并恢复基本配置
+                    for handler in root_logger.handlers[:]:
+                        root_logger.removeHandler(handler)
+                    logging.basicConfig()
+                except Exception:
+                    pass
+                
                 # 确保标准流被恢复到默认状态
                 if sys.stdout != sys.__stdout__:
                     sys.stdout = sys.__stdout__
