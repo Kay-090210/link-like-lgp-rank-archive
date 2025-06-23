@@ -12,7 +12,8 @@ from threading import Lock
 from config import (
     HEADERS, RANKING_URL, PROFILE_URL, SAVE_PATH, 
     FILE_NAMES, target_ranks, GRAND_PRIX_CONFIG, CHARACTER_NAMES,
-    generate_filename_prefix, get_filename, LGP_START_DATE, get_grand_prix_id
+    generate_filename_prefix, get_filename, LGP_START_DATE, get_grand_prix_id,
+    get_save_path
 )
 from utils import get_player_profile, log_progress, retry_request, fetch_player_profile
 import requests
@@ -34,10 +35,10 @@ class RankingDataCollector:
         初始化排行榜数据收集器
         
         参数:
-        ranking_day_type: 排行榜日期类型，20为前日榜，21为当日榜(默认)
+        ranking_day_type: 排行榜日期类型，20为前日榜，21为当日榜(默认)，30为公会前日榜，31为公会当日榜
         """
         # 重新加载config模块以确保获取最新的LGP_START_DATE
-        # 但需要保留GUI设置的活动ID
+        # 但需要保留GUI设置的活动ID和BATTLE_TYPE状态
         import importlib
         import config
         
@@ -45,12 +46,18 @@ class RankingDataCollector:
         gui_event_id_set = getattr(config, '_gui_event_id_set', False)
         gui_event_id = getattr(config, '_gui_event_id', None)
         
+        # 保存当前的BATTLE_TYPE状态
+        battle_type_state = config.BATTLE_TYPE.copy()
+        
         importlib.reload(config)
         
         # 恢复GUI设置的活动ID
         if gui_event_id_set and gui_event_id is not None:
             config._gui_event_id_set = gui_event_id_set
             config._gui_event_id = gui_event_id
+        
+        # 恢复BATTLE_TYPE状态
+        config.BATTLE_TYPE = battle_type_state
         
         from config import (
             HEADERS, RANKING_URL, PROFILE_URL, SAVE_PATH, 
@@ -77,7 +84,10 @@ class RankingDataCollector:
             sys.exit(1)
         
         # 定义排行榜类型及其对应的名称
-        day_type_name = "当日" if ranking_day_type == 21 else "前日"
+        # 根据ranking_day_type确定是当日榜还是前日榜
+        is_current_day = ranking_day_type in [21, 31]  # 21是个人当日榜，31是公会当日榜
+        day_type_name = "当日" if is_current_day else "前日"
+        
         self.ranking_types = {
             ranking_day_type: f"{day_type_name}总分",
             10: "A",
@@ -336,7 +346,9 @@ class RankingDataCollector:
         # 保存第一步的数据到Excel的不同子表中
         # 创建自定义文件名，使用正确的day计算
         ranking_cache_file = get_filename('ranking_cache', is_previous_day)
-        cache_file_path = os.path.join(SAVE_PATH, ranking_cache_file)
+        # 使用get_save_path()获取最新的保存路径
+        current_save_path = get_save_path()
+        cache_file_path = os.path.join(current_save_path, ranking_cache_file)
         
         # 确保有数据才创建文件夹和保存文件
         has_data = False
@@ -347,8 +359,8 @@ class RankingDataCollector:
                 
         if has_data:
             # 确保保存目录存在
-            if not os.path.exists(SAVE_PATH):
-                os.makedirs(SAVE_PATH)
+            if not os.path.exists(current_save_path):
+                os.makedirs(current_save_path)
                 
             with pd.ExcelWriter(cache_file_path) as writer:
                 for ranking_type in ranking_types_to_fetch:
@@ -455,7 +467,7 @@ class RankingDataCollector:
         
         # 保存第二步的数据到Excel
         ranking_full_file = get_filename('ranking_full', is_previous_day)
-        output_file = os.path.join(SAVE_PATH, ranking_full_file)
+        output_file = os.path.join(current_save_path, ranking_full_file)
         
         # 只有在DataFrame不为空时才保存
         if not df.empty:

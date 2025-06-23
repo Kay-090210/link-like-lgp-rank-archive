@@ -44,9 +44,25 @@ def parse_lgp_news():
                 period_match = re.search(r'◆開催期間\s*(.+?)(?=\n\n|$)', markdown_content, re.DOTALL)
                 period = period_match.group(1).strip() if period_match else "未找到开催期间"
                 
-                # 提取第一张图片
-                img_match = re.search(r'<img src="([^"]+)"', markdown_content)
-                img_url = img_match.group(1) if img_match else "未找到图片"
+                # 提取图片URL - 支持多种格式
+                img_url = "未找到图片"
+                # 尝试不同的图片格式
+                img_patterns = [
+                    r'<img src="([^"]+)"',  # HTML格式
+                    r'!\[.*?\]\(([^)]+)\)',  # Markdown格式
+                    r'https?://[^\s<>"]+?(?:jpg|jpeg|png|gif|webp)',  # 直接URL
+                    r'//[^\s<>"]+?(?:jpg|jpeg|png|gif|webp)'  # 协议相对URL
+                ]
+                
+                for pattern in img_patterns:
+                    img_match = re.search(pattern, markdown_content)
+                    if img_match:
+                        img_url = img_match.group(1) if '(' in pattern else img_match.group(0)
+                        # 处理协议相对URL
+                        if img_url.startswith('//'):
+                            img_url = 'https:' + img_url
+                        print(f"找到图片URL: {img_url}")
+                        break
                 
                 # 解析日期 - 在格式化之前提取日期
                 date_match = re.search(r'(\d+)/(\d+)\(.*?\) \d+:\d+ ～', period)

@@ -95,10 +95,14 @@ GRADE_RANKING_URL = f"{BASE_URL}/out_quest_live/grade/get_ranking_list"
 GET_DESCRIPTION_URL = f"{BASE_URL}/archive/get_home"
 
 # LGP类型配置（默认为个人战）
-BATTLE_TYPE = {
-    'personal': True,  # 个人战
-    'guild': False,    # 公会战
-}
+# 使用一个持久化的方式来定义BATTLE_TYPE，避免重新导入时被重置
+if 'BATTLE_TYPE' not in globals():
+    BATTLE_TYPE = {
+        'personal': True,  # 个人战
+        'guild': False,    # 公会战
+    }
+else:
+    pass
 
 # 更新LGP类型的函数
 def update_battle_type(battle_type_str):
@@ -110,6 +114,7 @@ def update_battle_type(battle_type_str):
     """
     global BATTLE_TYPE
     
+    
     # 重置所有类型为False
     for key in BATTLE_TYPE:
         BATTLE_TYPE[key] = False
@@ -117,6 +122,9 @@ def update_battle_type(battle_type_str):
     # 设置指定类型为True
     if battle_type_str in BATTLE_TYPE:
         BATTLE_TYPE[battle_type_str] = True
+    
+    # 记录更新后的状态
+    after_update = "个人战" if BATTLE_TYPE['personal'] else "公会战"
 
 # 生成保存目录名称的函数
 def generate_save_directory(month=None):
@@ -137,6 +145,7 @@ def generate_save_directory(month=None):
     
     # 生成目录名
     directory_name = f"{current_month}月{battle_type}"
+
     
     return directory_name
 
@@ -210,7 +219,7 @@ def get_current_event_id():
     if _gui_event_id_set and _gui_event_id is not None:
         return _gui_event_id
     else:
-        default_id = 805103  # 默认活动ID
+        default_id = 705103  # 默认活动ID
         return default_id
 
 # 活动ID配置
@@ -312,10 +321,28 @@ SEASON_GRADE_ID = {
 # 保存路径配置
 # 使用当前文件所在目录
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-SAVE_PATH = os.path.join(CURRENT_DIR, generate_save_directory())  # 动态生成保存路径文件夹
+
+# 将SAVE_PATH从变量改为函数，确保每次获取时都使用最新的BATTLE_TYPE
+def get_save_path(month=None):
+    """
+    获取保存路径，根据当前的BATTLE_TYPE动态生成
+    
+    参数:
+        month: 可选，指定月份（如果不提供则使用当前月份）
+        
+    返回:
+        形如"X月个人战"或"X月公会战"的完整路径
+    """
+    directory_name = generate_save_directory(month)
+    save_path = os.path.join(CURRENT_DIR, directory_name)
+    return save_path
+
+# 为了向后兼容，保留SAVE_PATH变量，但每次访问时都会重新计算
+# 这样可以避免修改大量使用SAVE_PATH的代码
+SAVE_PATH = get_save_path()  # 初始值，但实际使用时应该调用get_save_path()
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(2025, 6, 15)  # 初始化为None，强制必须通过update_lgp_start_date设置
+LGP_START_DATE = datetime(2025, 6, 22)  # 初始化为None，强制必须通过update_lgp_start_date设置
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):
@@ -416,7 +443,7 @@ def get_filename(key, is_previous_day=False):
 
 # 排行榜目标配置
 TARGET_RANK = 99999  # 设置目标排名数，如需要前1000名
-TEST_MODE = False   # 测试模式开关，开启后只获取1个目标排名
+TEST_MODE = True   # 测试模式开关，开启后只获取1个目标排名
 
 # 根据配置生成目标排名列表
 target_ranks = [1] if TEST_MODE else generate_rank_targets(TARGET_RANK)

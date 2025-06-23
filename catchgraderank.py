@@ -12,7 +12,7 @@ from threading import Lock
 from config import (
     HEADERS, GRADE_RANKING_URL, PROFILE_URL, SAVE_PATH, 
     FILE_NAMES, target_ranks, CHARACTER_NAMES, SEASON_GRADE_ID,
-    get_current_season_grade_id
+    get_current_season_grade_id, get_save_path
 )
 from utils import log_progress, retry_request, fetch_player_profile
 import requests
@@ -288,11 +288,13 @@ class GradeRankingDataCollector:
         
         # 只在有数据时才创建文件夹和保存文件
         if not df1.empty:
+            # 使用get_save_path()获取最新的保存路径
+            current_save_path = get_save_path()
             # 确保保存目录存在
-            if not os.path.exists(SAVE_PATH):
-                os.makedirs(SAVE_PATH)
+            if not os.path.exists(current_save_path):
+                os.makedirs(current_save_path)
                 
-            cache_file = os.path.join(SAVE_PATH, "赛季等级排名_基础数据.xlsx")
+            cache_file = os.path.join(current_save_path, "赛季等级排名_基础数据.xlsx")
             df1.to_excel(cache_file, index=False)
             print(f"赛季等级排名基础数据已保存至 {cache_file}，共 {len(players_basic_info)} 名玩家")
         else:
@@ -327,7 +329,9 @@ class GradeRankingDataCollector:
         
         # 只在DataFrame不为空时才保存
         if not df.empty:
-            output_file = os.path.join(SAVE_PATH, "赛季等级排名_详细数据.xlsx")
+            # 使用get_save_path()获取最新的保存路径
+            current_save_path = get_save_path()
+            output_file = os.path.join(current_save_path, "赛季等级排名_详细数据.xlsx")
             df.to_excel(output_file, index=False)
             print(f"赛季等级排名完整数据已保存至 {output_file}，共 {len(data_list)} 名玩家")
         else:

@@ -109,7 +109,7 @@ def check_and_run_register():
         register_account()
         log_progress("注册程序执行完成")
         # 重新加载config模块以获取更新后的配置
-        # 但需要保留GUI设置的活动ID
+        # 但需要保留GUI设置的活动ID和BATTLE_TYPE状态
         import importlib
         import config
         
@@ -117,12 +117,19 @@ def check_and_run_register():
         gui_event_id_set = getattr(config, '_gui_event_id_set', False)
         gui_event_id = getattr(config, '_gui_event_id', None)
         
+        # 保存当前的BATTLE_TYPE状态
+        battle_type_state = config.BATTLE_TYPE.copy()
+        
         importlib.reload(config)
         
         # 恢复GUI设置的活动ID
         if gui_event_id_set and gui_event_id is not None:
             config._gui_event_id_set = gui_event_id_set
             config._gui_event_id = gui_event_id
+        
+        # 恢复BATTLE_TYPE状态
+        config.BATTLE_TYPE = battle_type_state
+        
         return True
     except Exception as e:
         log_progress(f"注册程序执行失败: {e}")
@@ -158,10 +165,17 @@ def main():
         log_progress("由于注册失败，登录过程终止")
         return
     
+    # 保存当前的BATTLE_TYPE状态
+    import config
+    battle_type_state = config.BATTLE_TYPE.copy()
+    
     # 重新加载最新的配置
     account_config = load_account_config()
     current_account = account_config["current_account"]
     accounts = account_config["accounts"]
+    
+    # 恢复BATTLE_TYPE状态
+    config.BATTLE_TYPE = battle_type_state
     
     if current_account not in accounts:
         log_progress(f"错误：当前指定的账号 '{current_account}' 不存在于配置中")
