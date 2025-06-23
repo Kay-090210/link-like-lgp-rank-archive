@@ -443,7 +443,7 @@ def get_filename(key, is_previous_day=False):
 
 # 排行榜目标配置
 TARGET_RANK = 99999  # 设置目标排名数，如需要前1000名
-TEST_MODE = True   # 测试模式开关，开启后只获取1个目标排名
+TEST_MODE = False   # 测试模式开关，开启后只获取1个目标排名
 
 # 根据配置生成目标排名列表
 target_ranks = [1] if TEST_MODE else generate_rank_targets(TARGET_RANK)
