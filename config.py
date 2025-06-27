@@ -22,7 +22,7 @@ import sys
 # - 作为account.json中client_version的默认值
 # - 当account.json中没有client_version时使用此值
 # - 可通过update_client_version()函数统一更新所有相关配置
-DEFAULT_CLIENT_VERSION = "4.1.10"
+DEFAULT_CLIENT_VERSION = "4.2.0"
 
 # 从account.json加载账号配置
 def load_account_config():
