@@ -92,7 +92,8 @@ class RankingDataCollector:
             ranking_day_type: f"{day_type_name}总分",
             10: "A",
             11: "B",
-            12: "C"
+            12: "C",
+            40: "音游"  # 添加音游总分榜
         }
         # 为每种排行榜类型创建一个停止排名记录
         self.stop_ranks = {rank_type: float('inf') for rank_type in self.ranking_types.keys()}
@@ -312,8 +313,8 @@ class RankingDataCollector:
         
         # 确定要获取的排行榜类型
         ranking_types_to_fetch = [self.ranking_day_type]  # 总分榜
-        if not is_previous_day:  # 如果不是前日榜,才获取A、B、C榜
-            ranking_types_to_fetch.extend([10, 11, 12])  # A、B、C榜
+        if not is_previous_day:  # 如果不是前日榜,才获取A、B、C榜和音游总分榜
+            ranking_types_to_fetch.extend([10, 11, 12, 40])  # A、B、C榜和音游总分榜
         
         # 为每种排行榜类型获取数据
         for ranking_type in ranking_types_to_fetch:
@@ -376,8 +377,8 @@ class RankingDataCollector:
         
         # 创建玩家ID到point和rank的映射字典，用于快速查找
         player_maps = {}
-        if not is_previous_day:  # 只在当日榜时创建A、B、C榜的映射
-            for rank_type in [10, 11, 12]:  # A、B、C排行榜
+        if not is_previous_day:  # 只在当日榜时创建A、B、C榜和音游总分榜的映射
+            for rank_type in [10, 11, 12, 40]:  # A、B、C排行榜和音游总分榜
                 player_maps[rank_type] = {
                     player["player_id"]: {
                         "point": player["point"],
@@ -395,10 +396,10 @@ class RankingDataCollector:
             for future in as_completed(futures):
                 result = future.result()
                 if result:
-                    # 只在当日榜时添加A、B、C排行榜的数据
+                    # 只在当日榜时添加A、B、C排行榜和音游总分榜的数据
                     if not is_previous_day:
                         player_id = result["player_id"]
-                        for rank_type in [10, 11, 12]:  # A、B、C排行榜
+                        for rank_type in [10, 11, 12, 40]:  # A、B、C排行榜和音游总分榜
                             rank_name = self.ranking_types[rank_type]
                             if player_id in player_maps[rank_type]:
                                 result[f"{rank_name}分数"] = player_maps[rank_type][player_id]["point"]
@@ -415,26 +416,33 @@ class RankingDataCollector:
         columns_to_drop = ["慈", "梢", "缀理"]
         df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
         
-        # 重新排列列顺序，将A、B、C排行榜的分数和排名列提前到point后面
+        # 重新排列列顺序，将A、B、C排行榜和音游总分榜的分数和排名列提前到point后面
         # 首先获取所有列名
         all_columns = df.columns.tolist()
         
-        # 找出基础列（不包含A、B、C排行榜的分数和排名列）
+        # 找出基础列（不包含A、B、C排行榜和音游总分榜的分数和排名列）
         base_columns = [col for col in all_columns if not (col.endswith("分数") or col.endswith(" rank"))]
         
-        # 找出A、B、C排行榜的分数和排名列
-        abc_columns = [col for col in all_columns if (col.endswith("分数") or col.endswith(" rank"))]
+        # 找出A、B、C排行榜和音游总分榜的分数和排名列，并按照指定顺序排列
+        abc_columns = []
+        for rank_name in ["A", "B", "C", "音游"]:  # 确保音游总分榜在C榜后面
+            score_col = f"{rank_name}分数"
+            rank_col = f"{rank_name} rank"
+            if score_col in all_columns:
+                abc_columns.append(score_col)
+            if rank_col in all_columns:
+                abc_columns.append(rank_col)
         
         # 找出point列的位置
         point_index = base_columns.index("point") if "point" in base_columns else -1
         
         # 重新排列列顺序
         if point_index != -1:
-            # 将point列后面的列分为两部分：point后面的基础列和A、B、C排行榜的列
+            # 将point列后面的列分为两部分：point后面的基础列和A、B、C排行榜和音游总分榜的列
             columns_after_point = base_columns[point_index+1:]
             columns_before_point = base_columns[:point_index+1]
             
-            # 新的列顺序：point前面的基础列 + point + A、B、C排行榜的列 + point后面的基础列
+            # 新的列顺序：point前面的基础列 + point + A、B、C排行榜和音游总分榜的列 + point后面的基础列
             new_columns = columns_before_point + abc_columns + columns_after_point
         else:
             # 如果找不到point列，则保持原顺序
@@ -446,8 +454,8 @@ class RankingDataCollector:
         # 按照rank列升序排序
         df = df.sort_values(by='rank', ascending=True)
         
-        # 检查A、B、C排行榜列是否有数据，如果全部为None则删除对应列
-        abc_rank_types = {10: "A", 11: "B", 12: "C"}
+        # 检查A、B、C排行榜和音游总分榜列是否有数据，如果全部为None则删除对应列
+        abc_rank_types = {10: "A", 11: "B", 12: "C", 40: "音游"}
         columns_to_check = []
         
         for rank_type, rank_name in abc_rank_types.items():

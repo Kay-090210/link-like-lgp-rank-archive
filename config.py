@@ -22,7 +22,7 @@ import sys
 # - 作为account.json中client_version的默认值
 # - 当account.json中没有client_version时使用此值
 # - 可通过update_client_version()函数统一更新所有相关配置
-DEFAULT_CLIENT_VERSION = "4.2.0"
+DEFAULT_CLIENT_VERSION = "4.3.0"
 
 # 从account.json加载账号配置
 def load_account_config():
@@ -209,7 +209,7 @@ def set_gui_event_id(event_id):
 def get_current_event_id():
     """
     获取当前活动ID
-    优先级：GUI设置 > 默认值705102
+    优先级：GUI设置 > 默认值805104
     
     返回:
         当前使用的活动ID
@@ -219,7 +219,7 @@ def get_current_event_id():
     if _gui_event_id_set and _gui_event_id is not None:
         return _gui_event_id
     else:
-        default_id = 705103  # 默认活动ID
+        default_id = 805104  # 默认活动ID
         return default_id
 
 # 活动ID配置
@@ -241,6 +241,8 @@ class GrandPrixConfig:
             '5月公会战': 705102,  # 2025年5月公会战
             '6月个人战': 805103,  # 2025年6月个人战
             '6月公会战': 705103,  # 2025年6月公会战
+            '7月个人战': 805104,  # 2025年7月个人战
+            '7月公会战': 705104,  # 2025年7月公会战
         }
     
     @property
@@ -342,7 +344,7 @@ def get_save_path(month=None):
 SAVE_PATH = get_save_path()  # 初始值，但实际使用时应该调用get_save_path()
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(2025, 6, 22)  # 初始化为None，强制必须通过update_lgp_start_date设置
+LGP_START_DATE = datetime(2025, 7, 10)  # 初始化为None，强制必须通过update_lgp_start_date设置
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):
