@@ -167,3 +167,4 @@ test.py
 *.ico
 account.json
 *.xlsx
+*.json
