@@ -1,11 +1,11 @@
 {
     "current_account": "\u65b0\u6ce8\u518c",
     "accounts": {
-       
+        
     },
     "auth": {
-        "token": "3c2ce6c8-3296-4e03-84c2-9f7a4ed5cdac",
-        "resource_version": "R2505300",
-        "client_version": "4.0.1"
+        "token": "03047388-9c68-4f23-8067-abc1ffeeab65",
+        "resource_version": "R2507100",
+        "client_version": "4.3.0"
     }
 }
