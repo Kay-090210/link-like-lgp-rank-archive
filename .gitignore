@@ -166,3 +166,4 @@ dist
 test.py
 *.ico
 account.json
+*.xlsx
