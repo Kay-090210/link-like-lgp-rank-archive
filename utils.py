@@ -271,8 +271,14 @@ def fetch_player_profile(player_info: dict, include_last_login: bool = False, he
             "player_name": profile_data.get("player_name", ""),
             "search_guild_key": profile_data.get("search_guild_key", ""),
             "guild_name": profile_data.get("guild_name", ""),
-            "DR数量": profile_data.get("dream_style_num", 0)
         }
+        
+        # 计算总fanlv（所有角色的member_fan_level之和）
+        total_member_fan_level = sum(fan_info.get('member_fan_level', 0) for fan_info in fan_level_list)
+        player_data["总fanlv"] = total_member_fan_level
+        
+        # 添加DR数量
+        player_data["DR数量"] = profile_data.get("dream_style_num", 0)
         
         # 如果是从排行榜获取的数据，添加排名和分数
         if isinstance(player_info, dict):
