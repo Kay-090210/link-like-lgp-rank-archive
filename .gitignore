@@ -168,3 +168,4 @@ test.py
 account.json
 *.xlsx
 *.json
+get_info.py
