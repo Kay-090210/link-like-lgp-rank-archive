@@ -22,7 +22,7 @@ import sys
 # - 作为account.json中client_version的默认值
 # - 当account.json中没有client_version时使用此值
 # - 可通过update_client_version()函数统一更新所有相关配置
-DEFAULT_CLIENT_VERSION = "4.3.10"
+DEFAULT_CLIENT_VERSION = "4.7.51"
 
 # 从account.json加载账号配置
 def load_account_config():
@@ -315,8 +315,8 @@ def calculate_grade_id(month=None):
 SEASON_GRADE_ID = {
     'current': calculate_grade_id(),  # 动态计算当前赛季等级ID
     'history': {
-        '105期第一term': 1005005,  # 105期第一term,4月
-        '105期第二term': 1005006,  # 105期第二term,5月和6月
+        '105期opening term': 1005005,  # 105期opening term,4月
+        '105期first term': 1005006,  # 105期first term,5月和6月
     }
 }
 
@@ -344,7 +344,7 @@ def get_save_path(month=None):
 SAVE_PATH = get_save_path()  # 初始值，但实际使用时应该调用get_save_path()
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(2025, 7, 10)  # 初始化为None，强制必须通过update_lgp_start_date设置
+LGP_START_DATE = datetime(2025, 10, 15)  # 初始化为None，强制必须通过update_lgp_start_date设置
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):
@@ -493,12 +493,12 @@ HEADERS = {
 # 更新client version的函数
 def update_client_version(new_version):
     """
-    更新client version，同时更新Headers、AUTH_DATA和account.json
+    更新client version，同时更新Headers、AUTH_DATA、account.json和config.py文件中的DEFAULT_CLIENT_VERSION
     
     参数:
         new_version: 新的客户端版本号
     """
-    global HEADERS, AUTH_DATA, ACCOUNT_DATA
+    global HEADERS, AUTH_DATA, ACCOUNT_DATA, DEFAULT_CLIENT_VERSION
     
     # 更新Headers
     HEADERS["x-client-version"] = new_version
@@ -510,7 +510,44 @@ def update_client_version(new_version):
     ACCOUNT_DATA["auth"]["client_version"] = new_version
     save_account_config(ACCOUNT_DATA)
     
+    # 更新config.py文件中的DEFAULT_CLIENT_VERSION
+    update_config_file_default_client_version(new_version)
+    
+    # 更新运行时的全局变量
+    DEFAULT_CLIENT_VERSION = new_version
+    
     print(f"已更新client version为: {new_version}")
+
+def update_config_file_default_client_version(new_version):
+    """
+    更新config.py文件中的DEFAULT_CLIENT_VERSION常量
+    
+    参数:
+        new_version: 新的客户端版本号
+    """
+    import re
+    import os
+    
+    # 获取当前文件路径
+    config_path = os.path.abspath(__file__)
+    
+    try:
+        # 读取config.py文件
+        with open(config_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        
+        # 使用正则表达式替换DEFAULT_CLIENT_VERSION的值
+        pattern = r'(DEFAULT_CLIENT_VERSION\s*=\s*)"[^"]*"'
+        new_content = re.sub(pattern, f'\\1"{new_version}"', content)
+        
+        # 写回文件
+        with open(config_path, 'w', encoding='utf-8') as file:
+            file.write(new_content)
+            
+        print(f"已更新config.py中的DEFAULT_CLIENT_VERSION为: {new_version}")
+        
+    except Exception as e:
+        print(f"更新config.py文件失败: {str(e)}")
 
 def get_current_client_version():
     """
@@ -521,6 +558,36 @@ def get_current_client_version():
         当前使用的client version
     """
     return AUTH_DATA.get("client_version", DEFAULT_CLIENT_VERSION)
+
+def update_client_version_auto():
+    """
+    自动从App Store获取并更新最新的客户端版本号
+    
+    返回:
+        bool: 更新是否成功
+    """
+    try:
+        # 导入utils模块以获取客户端版本
+        from utils import get_client_version
+        
+        # 获取最新的客户端版本号
+        new_version = get_client_version()
+        
+        # 获取当前版本号进行比较
+        current_version = get_current_client_version()
+        
+        if new_version == current_version:
+            print(f"客户端版本已是最新: {current_version}")
+            return True
+        
+        # 更新配置文件
+        update_client_version(new_version)
+        print(f"客户端版本已从 {current_version} 更新至: {new_version}")
+        return True
+        
+    except Exception as e:
+        print(f"客户端版本号自动更新失败: {str(e)}")
+        return False
 
 # 角色ID与名称映射
 CHARACTER_NAMES = {

@@ -45,6 +45,9 @@ class MainWindow(QMainWindow):
         # 初始化时加载LGP信息
         self.load_lgp_info()
         
+        # 刷新客户端版本显示
+        self.refresh_client_version_display()
+        
     def setup_ui(self):
         """设置UI布局"""
         # 设置窗口基本属性
@@ -111,6 +114,19 @@ class MainWindow(QMainWindow):
         elif battle_type == 'grade':
             # 更新赛季等级ID
             config.calculate_grade_id(self.current_month)
+    
+    def refresh_client_version_display(self):
+        """刷新GUI中的客户端版本显示"""
+        try:
+            # 调用ControlCard的刷新方法
+            self.control_card.refresh_client_version()
+            
+            # 获取当前版本并记录日志
+            current_version = config.get_current_client_version()
+            self.log_widget.add_log(f"客户端版本已刷新: {current_version}", "info")
+            
+        except Exception as e:
+            self.log_widget.add_log(f"刷新客户端版本失败: {str(e)}", "error")
             
     def on_start_button_clicked(self):
         """开始按钮点击事件处理"""

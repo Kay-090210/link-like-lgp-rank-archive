@@ -372,3 +372,39 @@ def get_resource_version(prev_res_version=None, client_version=None):
     version = raw_version.split("@", 1)[0]
     
     return version
+
+@retry_request
+def get_client_version():
+    """
+    从App Store获取最新的客户端版本号
+    
+    Returns:
+        str: 客户端版本号，如果获取失败则抛出异常
+    """
+    import re
+    
+    # Linkura在App Store的URL
+    app_store_url = "https://apps.apple.com/jp/app/link-like-%E3%83%A9%E3%83%96%E3%83%A9%E3%82%A4%E3%83%96-%E8%93%AE%E3%83%8E%E7%A9%BA%E3%82%B9%E3%82%AF%E3%83%BC%E3%83%AB%E3%82%A2%E3%82%A4%E3%83%89%E3%83%AB%E3%82%AF%E3%83%A9%E3%83%96/id1665027261"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+    }
+    
+    response = requests.get(app_store_url, headers=headers)
+    
+    if response.status_code != 200:
+        raise RuntimeError(f"App Store请求失败: {response.status_code}")
+    
+    html = response.text
+    
+    # 使用正则表达式提取版本号
+    # 对应Rust中的: r#"\\"versionDisplay\\":\\"(\d+\.\d+\.\d+)\\""#
+    pattern = r'\\"versionDisplay\\":\\"(\d+\.\d+\.\d+)\\"'
+    match = re.search(pattern, html)
+    
+    if match:
+        version = match.group(1)
+        log_progress(f"从App Store获取到客户端版本: {version}")
+        return version
+    else:
+        raise RuntimeError("未能从App Store页面解析出版本号")

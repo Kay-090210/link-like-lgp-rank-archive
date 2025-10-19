@@ -193,4 +193,18 @@ class ControlCard(QWidget):
             'client_version': self.client_version_input.text(),
             'battle_type': battle_type,
             'ranking_type': ranking_type
-        } 
+        }
+        
+    def refresh_client_version(self):
+        """刷新客户端版本显示"""
+        # 获取最新的client version
+        current_version = config.get_current_client_version()
+        
+        # 暂时断开信号连接，避免触发change事件
+        self.client_version_input.textChanged.disconnect()
+        
+        # 更新输入框文本
+        self.client_version_input.setText(current_version)
+        
+        # 重新连接信号
+        self.client_version_input.textChanged.connect(self.on_client_version_changed) 

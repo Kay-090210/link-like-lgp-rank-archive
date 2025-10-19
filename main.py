@@ -8,10 +8,18 @@ import atexit
 from PyQt5.QtWidgets import QApplication
 
 from ui.main_window import MainWindow
+import config
 
 
 def main():
     """应用程序主函数"""
+    # 启动时自动检查并更新客户端版本
+    print("正在检查客户端版本...")
+    try:
+        config.update_client_version_auto()
+    except Exception as e:
+        print(f"客户端版本检查失败，继续启动应用: {e}")
+    
     app = QApplication(sys.argv)
     
     # 设置应用样式

@@ -89,6 +89,21 @@ def update_latest_resource_version():
         log_progress(f"资源版本号更新失败: {str(e)}")
         return False
 
+def update_latest_client_version():
+    """获取并更新最新的客户端版本号"""
+    try:
+        # 导入config模块以使用自动更新函数
+        import config
+        
+        # 使用config中的自动更新函数
+        success = config.update_client_version_auto()
+        if success:
+            log_progress("客户端版本号已成功更新")
+        return success
+    except Exception as e:
+        log_progress(f"客户端版本号更新失败: {str(e)}")
+        return False
+
 def check_and_run_register():
     """检查是否需要运行register.py"""
     # 加载当前账号配置
@@ -199,8 +214,9 @@ def main():
         log_progress("Authorization token 已更新")
     else:
         log_progress("登录失败")
-        # 尝试单独更新资源版本号
+        # 尝试单独更新资源版本号和客户端版本号
         update_latest_resource_version()
+        update_latest_client_version()
 
 if __name__ == "__main__":
     main()
