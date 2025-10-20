@@ -15,6 +15,7 @@ from config import (
     get_current_season_grade_id, get_save_path
 )
 from utils import log_progress, retry_request, fetch_player_profile
+from linklike.api_client import get_thread_local_client, ApiClientError
 import requests
 import os
 import importlib.util
@@ -153,9 +154,8 @@ class GradeRankingDataCollector:
         # 返回登录是否成功
         return login_successful
     
-    @retry_request
     def fetch_grade_ranking(self, target_rank: int, idx: int, total: int) -> list:
-        """获取赛季等级排名数据"""
+        """获取赛季等级排名数据（通过统一的ApiClient）"""
         # 检查当前请求的排名是否超过停止排名
         if target_rank > self.stop_rank:
             return []
@@ -165,40 +165,46 @@ class GradeRankingDataCollector:
             "get_rank_type": 0,
             "target_rank": target_rank
         }
-        # 使用实例的headers而不是全局HEADERS
-        response = requests.post(GRADE_RANKING_URL, headers=self.headers, json=ranking_payload)
-        if response.status_code == 200:
-            ranking_data = response.json()
+        client = get_thread_local_client(headers=self.headers)
+        try:
+            ranking_data = client.post(GRADE_RANKING_URL, json=ranking_payload)
+        except ApiClientError as e:
+            log_progress(f"获取赛季等级排名失败: {e}")
+            return []
+        
+        # 检查是否返回错误代码21001_210102（非比赛期间）
+        if isinstance(ranking_data, dict) and ranking_data.get("error_code") == "21001_210102":
+            error_msg = ranking_data.get("message", "未知错误")
+            print(f"错误: {error_msg}")
+            print("检测到非比赛期间，停止脚本执行")
+            sys.exit(1)
             
-            # 检查是否返回错误代码21001_210102（非比赛期间）
-            if isinstance(ranking_data, dict) and ranking_data.get("error_code") == "21001_210102":
-                error_msg = ranking_data.get("message", "未知错误")
-                print(f"错误: {error_msg}")
-                print("检测到非比赛期间，停止脚本执行")
-                sys.exit(1)
-                
-            player_list = ranking_data.get("point_rankings", [])
-            
-            # 如果获取到空列表，更新停止排名
-            if not player_list:
-                with self.lock:
-                    if target_rank < self.stop_rank:  # 确保记录最小的空列表排名
-                        self.stop_rank = target_rank
-                        log_progress(f"在 rank {target_rank} 处获取到空列表，将停止获取更高排名")
-            
+        player_list = ranking_data.get("point_rankings", [])
+        
+        # 如果获取到空列表，更新停止排名
+        if not player_list:
             with self.lock:
-                self.completed_count_step1 += 1
-                self.log_counters['fetch_grade_ranking'] += 1
-                # 每500条或完成时输出进度
-                if self.log_counters['fetch_grade_ranking'] % 500 == 0 or self.completed_count_step1 == total:
-                    log_progress(f"已采集({self.completed_count_step1}/{total})条赛季等级排名数据")
-            return player_list
-        return response  # 返回response对象让装饰器处理
+                if target_rank < self.stop_rank:  # 确保记录最小的空列表排名
+                    self.stop_rank = target_rank
+                    log_progress(f"在 rank {target_rank} 处获取到空列表，将停止获取更高排名")
+        
+        with self.lock:
+            self.completed_count_step1 += 1
+            self.log_counters['fetch_grade_ranking'] += 1
+            # 每500条或完成时输出进度
+            if self.log_counters['fetch_grade_ranking'] % 500 == 0 or self.completed_count_step1 == total:
+                log_progress(f"已采集({self.completed_count_step1}/{total})条赛季等级排名数据")
+        return player_list
 
     def fetch_profile(self, player_info: dict, idx: int, total: int) -> dict:
-        """获取玩家详细信息"""
-        # 传递实例的headers给fetch_player_profile函数
-        result = fetch_player_profile(player_info, headers=self.headers)
+        """获取玩家详细信息（通过统一的ApiClient）"""
+        client = get_thread_local_client(headers=self.headers)
+        try:
+            # 传递实例的headers和client给fetch_player_profile函数
+            result = fetch_player_profile(player_info, headers=self.headers, client=client)
+        except ApiClientError as e:
+            log_progress(f"获取玩家信息失败: {e}")
+            result = None
         
         # 检查返回值是否包含错误代码
         if isinstance(result, dict) and result.get("error_code") == "21001_210102":

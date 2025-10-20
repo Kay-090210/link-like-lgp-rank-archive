@@ -239,7 +239,7 @@ def log_progress(message: str):
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     logging.info(f"{message} - 时间: {current_time}")
 
-def fetch_player_profile(player_info: dict, include_last_login: bool = False, headers: Dict[str, str] = None) -> dict:
+def fetch_player_profile(player_info: dict, include_last_login: bool = False, headers: Dict[str, str] = None, client: Any = None) -> dict:
     """
     统一的玩家信息获取函数
     
@@ -247,6 +247,7 @@ def fetch_player_profile(player_info: dict, include_last_login: bool = False, he
         player_info: 包含player_id的字典，或直接的player_id字符串
         include_last_login: 是否包含最后登录时间
         headers: 自定义请求头，默认使用全局HEADERS
+        client: 可选，传入统一的ApiClient实例；如提供，则通过其发起请求
     
     Returns:
         dict: 处理后的玩家数据
@@ -254,7 +255,15 @@ def fetch_player_profile(player_info: dict, include_last_login: bool = False, he
     player_id = player_info["player_id"] if isinstance(player_info, dict) else player_info
     # 使用传入的headers或全局HEADERS
     headers_to_use = headers if headers is not None else HEADERS
-    result = get_player_profile(player_id, headers_to_use, PROFILE_URL)
+
+    if client is not None:
+        try:
+            result = client.post(PROFILE_URL, json={"player_id": player_id}, headers=headers_to_use)
+        except Exception as e:
+            logging.error(f"获取玩家信息失败: {e}")
+            result = None
+    else:
+        result = get_player_profile(player_id, headers_to_use, PROFILE_URL)
     
     # 检查是否有错误信息
     if isinstance(result, dict) and "error_code" in result:
