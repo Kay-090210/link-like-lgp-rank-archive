@@ -12,6 +12,7 @@
 import os
 import uuid
 import json
+import shutil
 from rank_utils import generate_rank_targets
 from datetime import datetime
 import sys
@@ -24,19 +25,25 @@ import sys
 # - 可通过update_client_version()函数统一更新所有相关配置
 DEFAULT_CLIENT_VERSION = "4.7.51"
 
+# 应用运行目录（支持PyInstaller打包）
+if getattr(sys, 'frozen', False):
+    APP_DIR = os.path.dirname(sys.executable)
+    BUNDLED_DIR = getattr(sys, '_MEIPASS', APP_DIR)
+else:
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+    BUNDLED_DIR = APP_DIR
+
 # 从account.json加载账号配置
 def load_account_config():
     """从account.json加载账号配置"""
     try:
-        # 处理PyInstaller打包后的路径问题
-        if getattr(sys, 'frozen', False):
-            # 如果是打包后的exe
-            base_path = sys._MEIPASS
-        else:
-            # 如果是开发环境
-            base_path = os.path.dirname(os.path.abspath(__file__))
+        account_path = os.path.join(APP_DIR, 'account.json')
+        if not os.path.exists(account_path):
+            bundled_account = os.path.join(BUNDLED_DIR, 'account.json')
+            if os.path.exists(bundled_account):
+                # 首次运行时将内置模板复制到应用目录
+                shutil.copyfile(bundled_account, account_path)
         
-        account_path = os.path.join(base_path, 'account.json')
         with open(account_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
@@ -52,7 +59,7 @@ def load_account_config():
             },
             "auth": {
                 "token": "",
-                "resource_version": "R2506000",
+                "resource_version": "R2510300",
                 "client_version": DEFAULT_CLIENT_VERSION  # 使用统一的默认版本
             }
         }
@@ -62,16 +69,8 @@ def load_account_config():
 def save_account_config(account_config):
     """保存账号配置到account.json"""
     try:
-        # 处理PyInstaller打包后的路径问题
-        if getattr(sys, 'frozen', False):
-            # 如果是打包后的exe，保存到用户目录
-            import tempfile
-            user_config_dir = os.path.join(tempfile.gettempdir(), 'LinkLike-LGP-Rank')
-            os.makedirs(user_config_dir, exist_ok=True)
-            account_path = os.path.join(user_config_dir, 'account.json')
-        else:
-            # 如果是开发环境，保存到项目目录
-            account_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'account.json')
+        os.makedirs(APP_DIR, exist_ok=True)
+        account_path = os.path.join(APP_DIR, 'account.json')
         
         with open(account_path, 'w', encoding='utf-8') as f:
             json.dump(account_config, f, indent=4)
@@ -322,7 +321,7 @@ SEASON_GRADE_ID = {
 
 # 保存路径配置
 # 使用当前文件所在目录
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CURRENT_DIR = APP_DIR
 
 # 将SAVE_PATH从变量改为函数，确保每次获取时都使用最新的BATTLE_TYPE
 def get_save_path(month=None):
@@ -344,7 +343,7 @@ def get_save_path(month=None):
 SAVE_PATH = get_save_path()  # 初始值，但实际使用时应该调用get_save_path()
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(2025, 10, 15)  # 初始化为None，强制必须通过update_lgp_start_date设置
+LGP_START_DATE = datetime(2025, 10, 24)  # 初始化为None，强制必须通过update_lgp_start_date设置
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):

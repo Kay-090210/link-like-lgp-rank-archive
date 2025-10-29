@@ -1,11 +1,14 @@
 {
-    "current_account": "\u65b0\u6ce8\u518c",
+    "current_account": "新注册",
     "accounts": {
-        
+        "新注册": {
+            "device_id": "",
+            "player_id": ""
+        }
     },
     "auth": {
-        "token": "03047388-9c68-4f23-8067-abc1ffeeab65",
-        "resource_version": "R2507100",
-        "client_version": "4.3.0"
+        "token": "8aa952d1-63a6-403d-b186-0361fc212c41",
+        "resource_version": "R2510300",
+        "client_version": "4.7.51"
     }
 }
