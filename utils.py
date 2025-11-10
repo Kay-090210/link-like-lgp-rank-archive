@@ -391,20 +391,37 @@ def get_client_version():
     }
     
     response = requests.get(app_store_url, headers=headers)
-    
     if response.status_code != 200:
         raise RuntimeError(f"App Store请求失败: {response.status_code}")
     
     html = response.text
-    
-    # 使用正则表达式提取版本号
+    # 方法1: 使用正则表达式提取版本号
     # 对应Rust中的: r#"\\"versionDisplay\\":\\"(\d+\.\d+\.\d+)\\""#
-    pattern = r'\\"versionDisplay\\":\\"(\d+\.\d+\.\d+)\\"'
-    match = re.search(pattern, html)
+    pattern1 = r'\\"versionDisplay\\":\\"(\d+\.\d+\.\d+)\\"'
+    match = re.search(pattern1, html)
     
     if match:
         version = match.group(1)
-        log_progress(f"从App Store获取到客户端版本: {version}")
+        log_progress(f"从App Store获取到客户端版本(方法1): {version}")
         return version
-    else:
-        raise RuntimeError("未能从App Store页面解析出版本号")
+    
+    # 方法2: 匹配日语版本号格式 "バージョン4.8.0"
+    pattern2 = r'バージョン(\d+\.\d+\.\d+)'
+    match = re.search(pattern2, html)
+    
+    if match:
+        version = match.group(1)
+        log_progress(f"从App Store获取到客户端版本(方法2): {version}")
+        return version
+    
+    # 方法3: 匹配HTML标签格式 "4.8.0</h4> <time datetime="
+    pattern3 = r'(\d+\.\d+\.\d+)</h4>\s*<time datetime='
+    match = re.search(pattern3, html)
+    
+    if match:
+        version = match.group(1)
+        log_progress(f"从App Store获取到客户端版本(方法3): {version}")
+        return version
+    
+    # 如果三种方法都失败
+    raise RuntimeError("未能从App Store页面解析出版本号")
