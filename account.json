@@ -1,14 +1,14 @@
 {
-    "current_account": "新注册",
+    "current_account": "\u65b0\u6ce8\u518c",
     "accounts": {
-        "新注册": {
-            "device_id": "",
-            "player_id": ""
+        "\u65b0\u6ce8\u518c": {
+            "device_id": "2712c74a-e28c-4544-927c-fcb4a32274cb",
+            "player_id": "HT6ACYHYF"
         }
     },
     "auth": {
-        "token": "8aa952d1-63a6-403d-b186-0361fc212c41",
-        "resource_version": "R2510300",
-        "client_version": "4.7.51"
+        "token": "7920e9e1-1254-4a33-be7d-315a88ec824c",
+        "resource_version": "R2602100",
+        "client_version": "4.10.6"
     }
 }

@@ -70,13 +70,13 @@ class StyleManager:
     def get_input_style(cls):
         """获取输入框样式"""
         return f"""
-            QLineEdit {{
+            QLineEdit, QComboBox {{
                 padding: 5px;
                 border: 1px solid #ccc;
                 border-radius: 4px;
                 background: white;
             }}
-            QLineEdit:focus {{
+            QLineEdit:focus, QComboBox:focus {{
                 border-color: {cls.PRIMARY_COLOR};
             }}
         """

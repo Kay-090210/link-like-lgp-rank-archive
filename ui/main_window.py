@@ -7,10 +7,10 @@ import sys
 import os
 import atexit
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 
 # 导入自定义组件
 from ui.components.header_widget import HeaderWidget
@@ -39,6 +39,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.current_month = datetime.now().month
         self.logger_thread = None
+        self.scheduled_timer = None
+        self.scheduled_selections = None
         self.setup_ui()
         self.setup_connections()
         
@@ -130,6 +132,19 @@ class MainWindow(QMainWindow):
             
     def on_start_button_clicked(self):
         """开始按钮点击事件处理"""
+        selections = self.control_card.get_current_selections()
+        if selections.get('schedule_enabled'):
+            self.schedule_task(selections)
+            return
+
+        self.cancel_scheduled_task()
+        self.start_task_immediately(selections)
+
+    def start_task_immediately(self, selections=None):
+        """立即执行任务"""
+        if selections is None:
+            selections = self.control_card.get_current_selections()
+
         # 检查是否有正在运行的线程
         try:
             has_running_thread = hasattr(self, 'logger_thread') and self.logger_thread and self.logger_thread.isRunning()
@@ -139,13 +154,13 @@ class MainWindow(QMainWindow):
             # 清除无效引用
             if hasattr(self, 'logger_thread'):
                 self.logger_thread = None
-        
+
         if has_running_thread:
             self.log_widget.add_log("正在终止先前的任务...", "warning")
             try:
                 self.logger_thread.terminate()  # 使用我们的安全终止方法
                 self.logger_thread.wait(3000)  # 等待线程完全终止，最多3秒
-                
+
                 # 如果线程仍在运行，发出警告并返回
                 if self.logger_thread and self.logger_thread.isRunning():
                     self.log_widget.add_log("无法终止先前的任务，请稍后再试", "error")
@@ -157,19 +172,17 @@ class MainWindow(QMainWindow):
             finally:
                 # 不再使用deleteLater，而是直接设置为None
                 self.logger_thread = None
-        
+
         # 检查LGP开始日期是否已设置
         if LGP_START_DATE is None:
             self.log_widget.add_log("错误: LGP开始日期未设置，正在重新获取...", "warning")
             if not self.load_lgp_info():
                 self.log_widget.add_log("错误: 无法获取LGP信息，请稍后重试", "error")
                 return
-        
-        # 获取当前选择的值
-        selections = self.control_card.get_current_selections()
+
         battle_type = selections['battle_type']
         ranking_type = selections['ranking_type']
-        
+
         # 更新config中的LGP类型配置和活动ID
         if battle_type in ['personal', 'guild']:
             config.update_battle_type(battle_type)
@@ -182,7 +195,7 @@ class MainWindow(QMainWindow):
             # 更新赛季等级ID
             new_grade_id = config.calculate_grade_id(self.current_month)
             self.log_widget.add_log(f"已设置赛季等级ID: {new_grade_id}", "info")
-        
+
         # 创建日志线程并启动
         self.logger_thread = LoggerThread(
             battle_type=battle_type,
@@ -190,33 +203,80 @@ class MainWindow(QMainWindow):
             current_month=self.current_month,
             lgp_start_day=None  # 不再使用从界面获取的开始日期
         )
-        
+
         # 连接日志信号
         self.logger_thread.log_signal.connect(self.log_widget.add_log)
-        
+
         # 禁用开始按钮
         self.button_group.set_button_state(False, "获取中...")
-        
+
         # 线程完成时启用按钮
         def on_thread_finished():
             self.button_group.set_button_state(True, "开始获取")
-        
+
         # 连接重置按钮信号
         self.logger_thread.reset_button_signal.connect(on_thread_finished)
-        
+
         # 连接任务状态信号
         def on_task_status(success):
             if success:
                 self.log_widget.add_log("数据获取任务已成功完成", "success")
             # 失败信息已在线程中直接通过log_signal发送，这里不需要额外处理
-        
+
         self.logger_thread.task_status_signal.connect(on_task_status)
-        
+
         # 连接线程完成信号
         self.logger_thread.finished.connect(on_thread_finished)
-        
+
         # 启动线程
         self.logger_thread.start()
+
+    def schedule_task(self, selections):
+        """设置定时执行任务"""
+        schedule_time_str = selections.get('schedule_time', '').strip()
+        if not schedule_time_str:
+            self.log_widget.add_log("错误: 未设置定时执行时间", "error")
+            return
+
+        try:
+            schedule_time = datetime.strptime(schedule_time_str, "%H:%M").time()
+        except ValueError:
+            self.log_widget.add_log("错误: 定时执行时间格式不正确，请使用HH:MM", "error")
+            return
+
+        if self.scheduled_timer and self.scheduled_timer.isActive():
+            self.scheduled_timer.stop()
+
+        now = datetime.now()
+        target_time = datetime.combine(now.date(), schedule_time)
+        if target_time <= now:
+            target_time += timedelta(days=1)
+            self.log_widget.add_log("选择的定时已过当前时间，已顺延到明天执行", "warning")
+
+        delay_ms = int((target_time - now).total_seconds() * 1000)
+        self.scheduled_timer = QTimer(self)
+        self.scheduled_timer.setSingleShot(True)
+        self.scheduled_timer.timeout.connect(self._run_scheduled_task)
+        self.scheduled_timer.start(delay_ms)
+        self.scheduled_selections = selections
+        self.button_group.set_button_state(True, "已定时")
+        self.log_widget.add_log(f"已设置定时执行: {target_time.strftime('%Y-%m-%d %H:%M')}", "info")
+
+    def cancel_scheduled_task(self):
+        """取消定时执行任务"""
+        if self.scheduled_timer and self.scheduled_timer.isActive():
+            self.scheduled_timer.stop()
+            self.scheduled_timer = None
+            self.scheduled_selections = None
+            self.log_widget.add_log("已取消之前的定时任务", "warning")
+
+    def _run_scheduled_task(self):
+        """定时触发后执行任务"""
+        self.scheduled_timer = None
+        selections = self.scheduled_selections or self.control_card.get_current_selections()
+        self.scheduled_selections = None
+        self.log_widget.add_log("定时触发，开始执行任务...", "info")
+        self.start_task_immediately(selections)
         
     def load_lgp_info(self):
         """加载LGP信息并更新UI"""
