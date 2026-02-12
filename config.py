@@ -23,7 +23,7 @@ import sys
 # - 作为account.json中client_version的默认值
 # - 当account.json中没有client_version时使用此值
 # - 可通过update_client_version()函数统一更新所有相关配置
-DEFAULT_CLIENT_VERSION = "4.7.51"
+DEFAULT_CLIENT_VERSION = "4.10.6"
 
 # 应用运行目录（支持PyInstaller打包）
 if getattr(sys, 'frozen', False):
@@ -343,7 +343,7 @@ def get_save_path(month=None):
 SAVE_PATH = get_save_path()  # 初始值，但实际使用时应该调用get_save_path()
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(2025, 10, 24)  # 初始化为None，强制必须通过update_lgp_start_date设置
+LGP_START_DATE = datetime(2026, 2, 14)  # 初始化为None，强制必须通过update_lgp_start_date设置
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):
@@ -444,7 +444,7 @@ def get_filename(key, is_previous_day=False):
 
 # 排行榜目标配置
 TARGET_RANK = 99999  # 设置目标排名数，如需要前1000名
-TEST_MODE = False   # 测试模式开关，开启后只获取1个目标排名
+TEST_MODE = False    # 测试模式开关，开启后只获取1个目标排名
 
 # 根据配置生成目标排名列表
 target_ranks = [1] if TEST_MODE else generate_rank_targets(TARGET_RANK)
