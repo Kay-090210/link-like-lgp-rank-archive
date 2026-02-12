@@ -44,6 +44,26 @@ def parse_lgp_news():
                 period_match = re.search(r'◆開催期間\s*(.+?)(?=\n\n|$)', markdown_content, re.DOTALL)
                 period = period_match.group(1).strip() if period_match else "未找到开催期间"
                 
+                # 提取图片URL - 支持多种格式
+                img_url = "未找到图片"
+                # 尝试不同的图片格式
+                img_patterns = [
+                    r'<img src="([^"]+)"',  # HTML格式
+                    r'!\[.*?\]\(([^)]+)\)',  # Markdown格式
+                    r'https?://[^\s<>"]+?(?:jpg|jpeg|png|gif|webp)',  # 直接URL
+                    r'//[^\s<>"]+?(?:jpg|jpeg|png|gif|webp)'  # 协议相对URL
+                ]
+                
+                for pattern in img_patterns:
+                    img_match = re.search(pattern, markdown_content)
+                    if img_match:
+                        img_url = img_match.group(1) if '(' in pattern else img_match.group(0)
+                        # 处理协议相对URL
+                        if img_url.startswith('//'):
+                            img_url = 'https:' + img_url
+                        print(f"找到图片URL: {img_url}")
+                        break
+                
                 # 解析日期 - 在格式化之前提取日期
                 date_match = re.search(r'(\d+)/(\d+)\(.*?\) \d+:\d+ ～', period)
                 start_month = None
@@ -69,7 +89,7 @@ def parse_lgp_news():
                     'id': news_id,
                     'title': title,
                     'period': period,
-                    'markdown_content': markdown_content,  # 保存markdown内容用于后续查找图片
+                    'first_img': img_url,
                     'start_month': start_month,
                     'start_day': start_day
                 }
@@ -102,37 +122,6 @@ def parse_lgp_news():
             print("已将部分内容保存到error.txt用于调试")
     
     return news_items
-
-def find_image_url(markdown_content):
-    """
-    从markdown内容中查找图片URL
-    
-    参数:
-        markdown_content: markdown格式的内容
-    
-    返回:
-        str: 图片URL，如果未找到则返回"未找到图片"
-    """
-    img_url = "未找到图片"
-    
-    # 尝试不同的图片格式
-    img_patterns = [
-        r'<img src="([^"]+)"',  # HTML格式
-        r'!\[.*?\]\(([^)]+)\)',  # Markdown格式
-        r'https?://[^\s<>"]+?(?:jpg|jpeg|png|gif|webp)',  # 直接URL
-        r'//[^\s<>"]+?(?:jpg|jpeg|png|gif|webp)'  # 协议相对URL
-    ]
-    
-    for pattern in img_patterns:
-        img_match = re.search(pattern, markdown_content)
-        if img_match:
-            img_url = img_match.group(1) if '(' in pattern else img_match.group(0)
-            # 处理协议相对URL
-            if img_url.startswith('//'):
-                img_url = 'https:' + img_url
-            break
-    
-    return img_url
 
 def get_latest_lgp_info():
     """
@@ -169,21 +158,8 @@ def get_latest_lgp_info():
     # 根据期数和日期排序（从最新到最旧）
     sorted_items = sorted(news_items, key=sort_key, reverse=True)
     
-    # 获取最新的LGP信息
-    if sorted_items:
-        latest_item = sorted_items[0]
-        # 只为最新的新闻查找图片URL
-        img_url = find_image_url(latest_item['markdown_content'])
-        print(f"找到图片URL: {img_url}")
-        
-        # 添加图片URL到结果中
-        latest_item['first_img'] = img_url
-        # 删除markdown_content，不需要返回
-        del latest_item['markdown_content']
-        
-        return latest_item
-    
-    return None
+    # 返回最新的LGP信息
+    return sorted_items[0] if sorted_items else None
 
 # 如果直接运行此脚本，则执行解析并输出结果
 if __name__ == "__main__":

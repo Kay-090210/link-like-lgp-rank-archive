@@ -23,7 +23,7 @@ from config import HEADERS, PROFILE_URL, CHARACTER_NAMES, BASE_URL, LOGIN_CONFIG
 
 
 
-def retry_request(func, max_retries=6, initial_delay=1):
+def retry_request(func, max_retries=3, initial_delay=1):
     """
     重试装饰器，使用指数退避机制
     :param func: 要重试的函数
@@ -264,133 +264,6 @@ def fetch_player_profile(player_info: dict, include_last_login: bool = False, he
     if result:
         profile_data = result.get('profile_info', {})
         fan_level_list = profile_data.get('fan_level_list', [])
-        friend_card_info = profile_data.get('friend_card_info', [])
-        support_card_name = ""
-        support_character_name = ""
-        support_sp_level = ""
-        support_skill_level = ""
-        music_support_card_name = ""
-        music_support_character_name = ""
-        music_support_sp_level = ""
-        if isinstance(friend_card_info, list):
-            found_support_card = False
-            found_music_support = False
-            for card_info in friend_card_info:
-                if not isinstance(card_info, dict):
-                    continue
-                card_type = card_info.get("card_type")
-                if card_type == 1 and not found_support_card:
-                    user_card_info = card_info.get("user_card_info", {})
-                    if isinstance(user_card_info, dict):
-                        support_card_name = user_card_info.get("card_name", "") or card_info.get("card_name", "")
-                        character_id = user_card_info.get("character_id", card_info.get("character_id"))
-                        skill_list = user_card_info.get("skill_list", [])
-                    else:
-                        support_card_name = card_info.get("card_name", "")
-                        character_id = card_info.get("character_id")
-                        skill_list = card_info.get("skill_list", [])
-                    if character_id is not None:
-                        support_character_name = CHARACTER_NAMES.get(character_id, str(character_id))
-                    if isinstance(skill_list, list):
-                        for skill_info in skill_list:
-                            if not isinstance(skill_info, dict):
-                                continue
-                            skill_type = skill_info.get("skill_type")
-                            skill_level = skill_info.get("skill_level")
-                            if skill_type == 1:
-                                support_sp_level = skill_level
-                            elif skill_type == 2:
-                                support_skill_level = skill_level
-                    elif isinstance(skill_list, dict):
-                        skill_type = skill_list.get("skill_type")
-                        skill_level = skill_list.get("skill_level")
-                        if skill_type == 1:
-                            support_sp_level = skill_level
-                        elif skill_type == 2:
-                            support_skill_level = skill_level
-                    found_support_card = True
-                elif card_type == 2 and not found_music_support:
-                    user_card_info = card_info.get("user_card_info", {})
-                    if isinstance(user_card_info, dict):
-                        music_support_card_name = user_card_info.get("card_name", "") or card_info.get("card_name", "")
-                        character_id = user_card_info.get("character_id", card_info.get("character_id"))
-                        rhythm_skill_list = user_card_info.get("rhythm_game_skill_list", [])
-                    else:
-                        music_support_card_name = card_info.get("card_name", "")
-                        character_id = card_info.get("character_id")
-                        rhythm_skill_list = card_info.get("rhythm_game_skill_list", [])
-                    if character_id is not None:
-                        music_support_character_name = CHARACTER_NAMES.get(character_id, str(character_id))
-                    if isinstance(rhythm_skill_list, list):
-                        for skill_info in rhythm_skill_list:
-                            if not isinstance(skill_info, dict):
-                                continue
-                            if skill_info.get("rhythm_game_skill_type") == 1:
-                                music_support_sp_level = skill_info.get("skill_level")
-                                break
-                    elif isinstance(rhythm_skill_list, dict):
-                        if rhythm_skill_list.get("rhythm_game_skill_type") == 1:
-                            music_support_sp_level = rhythm_skill_list.get("skill_level")
-                    found_music_support = True
-                if found_support_card and found_music_support:
-                    break
-        elif isinstance(friend_card_info, dict):
-            card_type = friend_card_info.get("card_type")
-            if card_type == 1:
-                user_card_info = friend_card_info.get("user_card_info", {})
-                if isinstance(user_card_info, dict):
-                    support_card_name = user_card_info.get("card_name", "") or friend_card_info.get("card_name", "")
-                    character_id = user_card_info.get("character_id", friend_card_info.get("character_id"))
-                    skill_list = user_card_info.get("skill_list", [])
-                else:
-                    support_card_name = friend_card_info.get("card_name", "")
-                    character_id = friend_card_info.get("character_id")
-                    skill_list = friend_card_info.get("skill_list", [])
-                if character_id is not None:
-                    support_character_name = CHARACTER_NAMES.get(character_id, str(character_id))
-                if isinstance(skill_list, list):
-                    for skill_info in skill_list:
-                        if not isinstance(skill_info, dict):
-                            continue
-                        skill_type = skill_info.get("skill_type")
-                        skill_level = skill_info.get("skill_level")
-                        if skill_type == 1:
-                            support_sp_level = skill_level
-                        elif skill_type == 2:
-                            support_skill_level = skill_level
-                elif isinstance(skill_list, dict):
-                    skill_type = skill_list.get("skill_type")
-                    skill_level = skill_list.get("skill_level")
-                    if skill_type == 1:
-                        support_sp_level = skill_level
-                    elif skill_type == 2:
-                        support_skill_level = skill_level
-            elif card_type == 2:
-                user_card_info = friend_card_info.get("user_card_info", {})
-                if isinstance(user_card_info, dict):
-                    music_support_card_name = user_card_info.get("card_name", "") or friend_card_info.get("card_name", "")
-                    character_id = user_card_info.get("character_id", friend_card_info.get("character_id"))
-                    rhythm_skill_list = user_card_info.get("rhythm_game_skill_list", [])
-                else:
-                    music_support_card_name = friend_card_info.get("card_name", "")
-                    character_id = friend_card_info.get("character_id")
-                    rhythm_skill_list = friend_card_info.get("rhythm_game_skill_list", [])
-                if character_id is not None:
-                    music_support_character_name = CHARACTER_NAMES.get(character_id, str(character_id))
-                if isinstance(rhythm_skill_list, list):
-                    for skill_info in rhythm_skill_list:
-                        if not isinstance(skill_info, dict):
-                            continue
-                        if skill_info.get("rhythm_game_skill_type") == 1:
-                            music_support_sp_level = skill_info.get("skill_level")
-                            break
-                elif isinstance(rhythm_skill_list, dict):
-                    if rhythm_skill_list.get("rhythm_game_skill_type") == 1:
-                        music_support_sp_level = rhythm_skill_list.get("skill_level")
-        if support_card_name and support_character_name:
-            support_card_name = f"{support_character_name}:{support_card_name}"
-        if music_support_card_name and music_support_character_name:
-            music_support_card_name = f"{music_support_character_name}:{music_support_card_name}"
         
         # 创建基础数据字典
         player_data = {
@@ -398,11 +271,6 @@ def fetch_player_profile(player_info: dict, include_last_login: bool = False, he
             "player_name": profile_data.get("player_name", ""),
             "search_guild_key": profile_data.get("search_guild_key", ""),
             "guild_name": profile_data.get("guild_name", ""),
-            "卡牌助战": support_card_name,
-            "sp等级": support_sp_level,
-            "技能等级": support_skill_level,
-            "音游助战": music_support_card_name,
-            "音游sp": music_support_sp_level,
         }
         
         # 计算总fanlv（所有角色的member_fan_level之和）

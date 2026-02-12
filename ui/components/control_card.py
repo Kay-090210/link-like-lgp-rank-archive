@@ -4,11 +4,10 @@
 """
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
-    QLineEdit, QRadioButton, QButtonGroup, QFrame,
-    QCheckBox, QComboBox, QLabel
+    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
+    QLineEdit, QRadioButton, QButtonGroup, QFrame
 )
-from PyQt5.QtCore import pyqtSignal, QTime
+from PyQt5.QtCore import pyqtSignal
 
 from ui.utils.style_manager import StyleManager
 import config
@@ -45,9 +44,6 @@ class ControlCard(QWidget):
         
         # 添加榜单类型选择
         self.add_ranking_type_selection(card_layout)
-
-        # 添加执行方式选择
-        self.add_schedule_selection(card_layout)
         
         # 主布局
         main_layout = QVBoxLayout(self)
@@ -140,44 +136,6 @@ class ControlCard(QWidget):
         
         # 添加到卡片布局
         layout.addWidget(self.ranking_type_group_box)
-
-    def add_schedule_selection(self, layout):
-        """添加执行方式选择部分"""
-        group_box = QGroupBox("执行方式")
-        group_box.setStyleSheet(StyleManager.get_group_box_style())
-
-        schedule_layout = QHBoxLayout()
-
-        self.schedule_checkbox = QCheckBox("定时执行")
-        self.schedule_time_label = QLabel("执行时间")
-        self.schedule_hour_combo = QComboBox()
-        self.schedule_minute_combo = QComboBox()
-        self.schedule_time_separator = QLabel(":")
-        for i in range(24):
-            self.schedule_hour_combo.addItem(f"{i:02d}")
-        for i in range(60):
-            self.schedule_minute_combo.addItem(f"{i:02d}")
-
-        now = QTime.currentTime().addSecs(60)
-        self.schedule_hour_combo.setCurrentIndex(now.hour())
-        self.schedule_minute_combo.setCurrentIndex(now.minute())
-
-        self.schedule_hour_combo.setStyleSheet(StyleManager.get_input_style())
-        self.schedule_minute_combo.setStyleSheet(StyleManager.get_input_style())
-        self.schedule_hour_combo.setFixedWidth(64)
-        self.schedule_minute_combo.setFixedWidth(64)
-
-        schedule_layout.addWidget(self.schedule_checkbox)
-        schedule_layout.addWidget(self.schedule_time_label)
-        schedule_layout.addWidget(self.schedule_hour_combo)
-        schedule_layout.addWidget(self.schedule_time_separator)
-        schedule_layout.addWidget(self.schedule_minute_combo)
-        schedule_layout.addStretch()
-
-        group_box.setLayout(schedule_layout)
-        layout.addWidget(group_box)
-
-        self.set_schedule_input_visible(False)
         
     def setup_connections(self):
         """设置信号连接"""
@@ -186,9 +144,6 @@ class ControlCard(QWidget):
         
         # 战斗类型变化
         self.battle_type_group.buttonClicked.connect(self.on_battle_type_changed)
-
-        # 定时执行选项变化
-        self.schedule_checkbox.toggled.connect(self.on_schedule_toggled)
         
         # 初始化时检查战斗类型
         self.check_battle_type_selection()
@@ -212,10 +167,6 @@ class ControlCard(QWidget):
             battle_type = 'personal'
             
         self.battle_type_changed.emit(battle_type)
-
-    def on_schedule_toggled(self, checked):
-        """定时执行选项变化事件处理"""
-        self.set_schedule_input_visible(checked)
         
     def check_battle_type_selection(self):
         """检查战斗类型并切换相关组件的可见性"""
@@ -223,15 +174,6 @@ class ControlCard(QWidget):
             self.ranking_type_group_box.setVisible(False)
         else:
             self.ranking_type_group_box.setVisible(True)
-
-    def set_schedule_input_visible(self, visible):
-        """设置定时输入组件的可见性"""
-        self.schedule_time_label.setVisible(visible)
-        self.schedule_hour_combo.setVisible(visible)
-        self.schedule_time_separator.setVisible(visible)
-        self.schedule_minute_combo.setVisible(visible)
-        self.schedule_hour_combo.setEnabled(visible)
-        self.schedule_minute_combo.setEnabled(visible)
             
     def get_current_selections(self):
         """获取当前选择的设置"""
@@ -246,16 +188,11 @@ class ControlCard(QWidget):
         ranking_type = 'current'
         if self.previous_radio.isChecked():
             ranking_type = 'previous'
-
-        schedule_enabled = self.schedule_checkbox.isChecked()
-        schedule_time = f"{self.schedule_hour_combo.currentText()}:{self.schedule_minute_combo.currentText()}"
             
         return {
             'client_version': self.client_version_input.text(),
             'battle_type': battle_type,
-            'ranking_type': ranking_type,
-            'schedule_enabled': schedule_enabled,
-            'schedule_time': schedule_time
+            'ranking_type': ranking_type
         }
         
     def refresh_client_version(self):

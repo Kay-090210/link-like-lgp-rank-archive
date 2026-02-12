@@ -388,7 +388,7 @@ class RankingDataCollector:
                 }
         
         data_list = []
-        with ThreadPoolExecutor(max_workers=150) as executor:
+        with ThreadPoolExecutor(max_workers=100) as executor:
             futures = {
                 executor.submit(self.fetch_profile, player, idx, len(total_players_info)): player
                 for idx, player in enumerate(total_players_info, start=1)

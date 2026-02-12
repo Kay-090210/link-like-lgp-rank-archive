@@ -33,7 +33,7 @@ def main():
     app = QApplication(sys.argv)
     
     # 设置应用样式
-    app.setStyle("Fusion")  
+    app.setStyle("Fusion")
     
     # 创建主窗口
     window = MainWindow()
