@@ -14,7 +14,7 @@ from config import (
     FILE_NAMES, target_ranks, CHARACTER_NAMES, SEASON_GRADE_ID,
     get_current_season_grade_id, get_save_path
 )
-from utils import log_progress, retry_request, fetch_player_profile
+from utils import log_progress, retry_request, fetch_player_profile, reorder_and_rename_member_fan_columns
 import requests
 import os
 import importlib.util
@@ -326,6 +326,9 @@ class GradeRankingDataCollector:
         
         # 按照rank列升序排序
         df = df.sort_values(by='rank', ascending=True)
+
+        # 调整member_fan_level列位置并重命名为角色名（允许与赛季等级列重名）
+        df = reorder_and_rename_member_fan_columns(df)
         
         # 只在DataFrame不为空时才保存
         if not df.empty:

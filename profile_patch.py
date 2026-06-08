@@ -16,7 +16,7 @@ import pandas as pd
 
 import config
 import login
-from utils import fetch_player_profile
+from utils import fetch_player_profile, reorder_and_rename_member_fan_columns
 
 
 def load_player_ids(xlsx_path: Path) -> List[str]:
@@ -154,7 +154,9 @@ def main() -> None:
         return
 
     output_path = xlsx_path.parent / "补漏信息.xlsx"
-    pd.DataFrame(data_list).to_excel(output_path, index=False)
+    df = pd.DataFrame(data_list)
+    df = reorder_and_rename_member_fan_columns(df)
+    df.to_excel(output_path, index=False)
     print(f"已保存: {output_path}")
     if failed_ids:
         print(f"失败数量: {len(failed_ids)}")

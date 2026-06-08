@@ -15,7 +15,7 @@ from config import (
     generate_filename_prefix, get_filename, LGP_START_DATE, get_grand_prix_id,
     get_save_path
 )
-from utils import get_player_profile, log_progress, retry_request, fetch_player_profile
+from utils import get_player_profile, log_progress, retry_request, fetch_player_profile, reorder_and_rename_member_fan_columns
 import requests
 import os
 import importlib.util
@@ -472,6 +472,9 @@ class RankingDataCollector:
         if columns_to_check:
             df = df.drop(columns=columns_to_check)
             print(f"已删除无数据的列: {', '.join(columns_to_check)}")
+
+        # 调整member_fan_level列位置并重命名为角色名（允许与赛季等级列重名）
+        df = reorder_and_rename_member_fan_columns(df)
         
         # 保存第二步的数据到Excel
         ranking_full_file = get_filename('ranking_full', is_previous_day)

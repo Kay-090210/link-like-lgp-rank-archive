@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import Dict, List
-from config import SAVE_PATH, FILE_NAMES
+from config import SAVE_PATH, get_filename
 import os
 
 def process_fanlv_data(data: Dict) -> None:
@@ -84,7 +84,8 @@ def process_fanlv_data(data: Dict) -> None:
     history_df = pd.DataFrame(history_rows)
     
     # 保存为Excel文件，使用多个sheet
-    output_file = os.path.join(SAVE_PATH, FILE_NAMES['fanlv'])
+    os.makedirs(SAVE_PATH, exist_ok=True)
+    output_file = os.path.join(SAVE_PATH, get_filename('fanlv'))
     with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='总览', index=False)
         history_df.to_excel(writer, sheet_name='历史记录', index=False)

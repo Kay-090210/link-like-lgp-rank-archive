@@ -143,28 +143,20 @@ def get_latest_lgp_info():
     """
     news_items = parse_lgp_news()
     
-    # 使用期数和日期进行排序
+    # 使用公告发布日期和开赛日期进行排序
     def sort_key(item):
-        # 从标题中提取期数信息 (例如 "105期1stTerm" 中的 105)
-        title = item['title']
-        period_match = re.search(r'(\d+)期', title)
-        period = int(period_match.group(1)) if period_match else 0
+        # 优先使用公告ID中的发布日期，兼容「Chapter PERENNIAL」这类不含“数字期”的新标题
+        published_match = re.match(r'(\d{4})-(\d{2})-(\d{2})-', item['id'])
+        if published_match:
+            published_date = tuple(int(part) for part in published_match.groups())
+        else:
+            published_date = (0, 0, 0)
         
         # 如果没有日期信息，则放到最后
         if item['start_month'] is None or item['start_day'] is None:
-            return (period, 0, 0)
+            return (*published_date, 0, 0)
         
-        # 根据期数和日期排序
-        # 对于相同期数，5月份的排在12月份的后面，因为可能是下一年的
-        month_normalized = item['start_month']
-        if month_normalized >= 4 and month_normalized <= 12:
-            # 4-12月属于当前年的前半段排序
-            month_weight = month_normalized - 4
-        else:
-            # 1-3月属于下一年的后半段排序
-            month_weight = month_normalized + 9
-            
-        return (period, month_weight, item['start_day'])
+        return (*published_date, item['start_month'], item['start_day'])
     
     # 根据期数和日期排序（从最新到最旧）
     sorted_items = sorted(news_items, key=sort_key, reverse=True)

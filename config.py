@@ -10,12 +10,19 @@
 6. 角色ID映射
 """
 import os
+import sys
 import uuid
 import json
 import shutil
-from rank_utils import generate_rank_targets
 from datetime import datetime
-import sys
+
+# 确保项目根目录在 sys.path 中，防止 import rank_utils 失败
+# 特别是在 PyInstaller 打包或特定 IDE 下运行时
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+from rank_utils import generate_rank_targets
 
 # Client Version管理
 # ==================
@@ -23,7 +30,7 @@ import sys
 # - 作为account.json中client_version的默认值
 # - 当account.json中没有client_version时使用此值
 # - 可通过update_client_version()函数统一更新所有相关配置
-DEFAULT_CLIENT_VERSION = "4.10.6"
+DEFAULT_CLIENT_VERSION = "5.1.0"
 
 # 应用运行目录（支持PyInstaller打包）
 if getattr(sys, 'frozen', False):
@@ -164,6 +171,16 @@ def calculate_event_id(month=None):
     # 使用提供的月份或当前月份
     current_month = month if month is not None else now.month
     current_year = now.year
+
+    # 106期当前活动编号：个人战 806101，公会战 706101
+    current_battle_type = "personal" if BATTLE_TYPE['personal'] else "guild"
+    current_event_overrides = {
+        (2026, 5, "personal"): 806101,
+        (2026, 6, "guild"): 706101,
+    }
+    override_id = current_event_overrides.get((current_year, current_month, current_battle_type))
+    if override_id is not None:
+        return override_id
     
     # 确定期数和月份序号
     # 假设05期从2025年4月开始
@@ -208,7 +225,7 @@ def set_gui_event_id(event_id):
 def get_current_event_id():
     """
     获取当前活动ID
-    优先级：GUI设置 > 默认值805104
+    优先级：GUI设置 > 当前战斗类型默认值
     
     返回:
         当前使用的活动ID
@@ -218,8 +235,7 @@ def get_current_event_id():
     if _gui_event_id_set and _gui_event_id is not None:
         return _gui_event_id
     else:
-        default_id = 805104  # 默认活动ID
-        return default_id
+        return 806101 if BATTLE_TYPE['personal'] else 706101
 
 # 活动ID配置
 class GrandPrixConfig:
@@ -242,6 +258,8 @@ class GrandPrixConfig:
             '6月公会战': 705103,  # 2025年6月公会战
             '7月个人战': 805104,  # 2025年7月个人战
             '7月公会战': 705104,  # 2025年7月公会战
+            'Chapter PERENNIAL 个人战': 806101,  # 2026年5月个人战
+            'Chapter BRIGHT SEEDS 公会战': 706101,  # 2026年6月公会战
         }
     
     @property
@@ -343,7 +361,7 @@ def get_save_path(month=None):
 SAVE_PATH = get_save_path()  # 初始值，但实际使用时应该调用get_save_path()
 
 # LGP开始日期配置（默认值，会被GUI覆盖）
-LGP_START_DATE = datetime(2026, 2, 14)  # 初始化为None，强制必须通过update_lgp_start_date设置
+LGP_START_DATE = datetime(2026, 6, 3)  # 106期 Chapter BRIGHT SEEDS 公会战
 
 # 更新LGP开始日期
 def update_lgp_start_date(year, month, day):
@@ -467,7 +485,7 @@ else:
 
 # Player ID 配置
 PLAYER_IDS = {
-    'single_query': "M8W7X6A8U",  # get_info.py 使用的单个查询ID
+    'single_query': "4YTEQDE04",  # get_info.py 使用的单个查询ID
 }
 
 # 从account.json加载授权信息

@@ -45,7 +45,7 @@ def login(player_id: str, device_id: str) -> dict:
             log_progress(f"资源版本号已更新至: {res_version}")
             
         return response.json()
-    return response  # 直接返回 response 对象，让装饰器处理错误情况
+    return response  # 直接返回 response 对象，让装饰器处理错误情况  # pyright: ignore[reportReturnType]
 
 def update_auth_token(session_token: str) -> None:
     """更新account.json文件中的Authorization token"""
@@ -150,7 +150,7 @@ def check_and_run_register():
         log_progress(f"注册程序执行失败: {e}")
         return False
 
-def get_current_token() -> str:
+def get_current_token() -> str | None:
     """获取当前的Authorization token
     
     Returns:
@@ -168,11 +168,10 @@ def get_current_token() -> str:
             return f"Bearer {token}"
         else:
             log_progress("警告：未找到有效的Authorization token")
-            return None
+            return None  
     except Exception as e:
         log_progress(f"获取token时发生错误: {e}")
-        return None
-
+        return None  
 def main():
     """登录并更新认证Token和资源版本号"""
     # 检查并在必要时运行register.py
@@ -210,7 +209,7 @@ def main():
         log_progress("登录成功！")
         log_progress(f"Session Token: {session_token}")
         # 更新 Authorization
-        update_auth_token(session_token)
+        update_auth_token(session_token)  # pyright: ignore[reportArgumentType]
         log_progress("Authorization token 已更新")
     else:
         log_progress("登录失败")
